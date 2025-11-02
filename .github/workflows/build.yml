@@ -1,0 +1,354 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+            rustTarget: 'x86_64-apple-darwin'
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+            rustTarget: 'aarch64-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: ''
+            rustTarget: 'x86_64-unknown-linux-gnu'
+          - platform: 'windows-latest'
+            args: ''
+            rustTarget: 'x86_64-pc-windows-msvc'
+
+    runs-on: ${{ matrix.platform }}
+    name: Build on ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rustTarget }}
+
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf rpm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Extract version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        id: extract_version
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+      - name: Update version in Cargo.toml
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          VERSION="${{ steps.extract_version.outputs.version }}"
+          if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
+            sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+          else
+            sed -i "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+          fi
+          cat src-tauri/Cargo.toml | grep version
+
+      - name: Update version in tauri.conf.json
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          VERSION="${{ steps.extract_version.outputs.version }}"
+          node -e "const fs = require('fs'); const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8')); config.version = '$VERSION'; fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(config, null, 2) + '\n');"
+          cat src-tauri/tauri.conf.json | grep version
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Check signing key configuration
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          echo "=== Checking Tauri Updater Configuration ==="
+          echo ""
+          echo "Required configuration:"
+          echo "1. TAURI_SIGNING_PRIVATE_KEY secret must be set in GitHub repository secrets"
+          echo "2. tauri.conf.json must have 'createUpdaterArtifacts: true' in bundle section"
+          echo "3. tauri.conf.json must have 'updater.pubkey' configured"
+          echo ""
+          echo "To generate signing keys:"
+          echo "  tauri signer generate -w ~/.tauri/myapp.key"
+          echo "  cat ~/.tauri/myapp.key.pub | base64 -w 0"
+          echo ""
+          echo "Checking tauri.conf.json for createUpdaterArtifacts..."
+          if grep -q "createUpdaterArtifacts" src-tauri/tauri.conf.json; then
+            echo "✓ createUpdaterArtifacts found in tauri.conf.json"
+          else
+            echo "✗ createUpdaterArtifacts NOT found in tauri.conf.json"
+          fi
+          echo ""
+          echo "Note: If .sig files are not generated after build, check:"
+          echo "- TAURI_SIGNING_PRIVATE_KEY is properly set in repository secrets"
+          echo "- The private key format is correct (must include BEGIN/END headers, full PEM format)"
+          echo "- If key is encrypted, TAURI_KEY_PASSWORD may be needed"
+          echo "- Build logs for any signing-related errors"
+          echo ""
+          echo "Example private key format (must include headers):"
+          echo "-----BEGIN ENCRYPTED PRIVATE KEY-----"
+          echo "..."
+          echo "-----END ENCRYPTED PRIVATE KEY-----"
+
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
+        id: tauri-build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        with:
+          projectPath: ./src-tauri
+          args: ${{ matrix.args }}
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Kairoa v__VERSION__'
+          releaseBody: 'See the assets to download this version and install.'
+          releaseDraft: ${{ github.event_name != 'pull_request' }}
+          prerelease: false
+          updater: true
+
+  generate-updater-json:
+    needs: build-tauri
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+      - name: Generate updater JSON
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.extract_version.outputs.version }}
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          REPO="${{ github.repository }}"
+          
+          # 获取 release 信息
+          RELEASE_INFO=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$REPO/releases/tags/$TAG_NAME")
+          
+          # 获取发布日期
+          PUB_DATE=$(echo "$RELEASE_INFO" | jq -r '.published_at')
+          NOTES=$(echo "$RELEASE_INFO" | jq -r '.body // "See the assets to download this version and install."')
+          
+          # 获取所有 assets 并构建平台映射（包含签名）
+          # Tauri updater 的 signature 字段应该是签名文件的 base64 编码内容
+          
+          # 首先打印所有 assets 用于调试
+          echo "=== All release assets ==="
+          echo "$RELEASE_INFO" | jq -r '.assets[] | .name' | sort
+          
+          # 获取所有 assets（包括安装包和签名文件）
+          ASSETS=$(echo "$RELEASE_INFO" | jq '[.assets[] | {name: .name, url: .browser_download_url}]')
+          
+          # 匹配平台（先不添加 sig_url，避免 jq 作用域问题）
+          PLATFORMS=$(echo "$ASSETS" | jq '
+            map(select(.name | test("\\.(dmg|appimage|deb|rpm|exe|msi)$"; "i"))) |
+            map(. as $installer | {
+              name: $installer.name,
+              url: $installer.url,
+              platform: (
+                if ($installer.name | test(".*_aarch64_darwin|.*aarch64.*darwin"; "i")) then "darwin-aarch64"
+                elif ($installer.name | test(".*_x64_darwin|.*x64.*darwin"; "i")) then "darwin-x86_64"
+                elif ($installer.name | test(".*_amd64_linux|.*amd64.*linux"; "i")) then "linux-x86_64"
+                elif ($installer.name | test(".*_x86_64_linux|.*x86_64.*linux"; "i")) then "linux-x86_64"
+                elif ($installer.name | test(".*_x64.*windows|.*x64.*windows"; "i")) then "windows-x86_64"
+                elif ($installer.name | test(".*_x86_64.*windows|.*x86_64.*windows"; "i")) then "windows-x86_64"
+                elif ($installer.name | test("\\.dmg$"; "i")) then
+                  if ($installer.name | test("aarch64|arm64"; "i")) then "darwin-aarch64"
+                  else "darwin-x86_64"
+                  end
+                elif ($installer.name | test("\\.(deb|rpm|appimage)$"; "i")) then "linux-x86_64"
+                elif ($installer.name | test("\\.(exe|msi)$"; "i")) then "windows-x86_64"
+                else empty
+                end
+              )
+            }) |
+            map(select(.platform != null)) |
+            reduce .[] as $item ({}; 
+              if has($item.platform) then . 
+              else . + {($item.platform): {url: $item.url, name: $item.name}}
+              end
+            )
+          ')
+          
+          # 打印匹配结果用于调试
+          echo "=== Matched platforms (before signature download) ==="
+          echo "$PLATFORMS" | jq '.'
+          
+          # 如果没有匹配的平台，使用空对象
+          if [ -z "$PLATFORMS" ] || [ "$PLATFORMS" = "null" ]; then
+            PLATFORMS="{}"
+          fi
+          
+          # 下载签名文件并转换为 base64
+          # 使用 jq 构建最终的 platforms 对象，避免 shell 循环作用域问题
+          PLATFORMS=$(echo "$PLATFORMS" | jq --argjson assets "$ASSETS" '
+            to_entries | map(
+              .key as $platform |
+              .value.name as $installer_name |
+              .value.url as $installer_url |
+              # 查找签名文件：精确匹配 installer_name + ".sig"
+              ($assets | 
+                map(select(.name == ($installer_name + ".sig"))) |
+                if length > 0 then .[0].url else empty end
+              ) as $sig_url |
+              {
+                platform: $platform,
+                url: $installer_url,
+                sig_url: ($sig_url // empty),
+                installer_name: $installer_name
+              }
+            ) | 
+            # 转换为对象格式
+            reduce .[] as $item ({}; 
+              . + {
+                ($item.platform): {
+                  url: $item.url,
+                  sig_url: $item.sig_url,
+                  installer_name: $item.installer_name
+                }
+              }
+            )
+          ')
+          
+          # 打印签名文件查找结果用于调试
+          echo "=== Signature file lookup results ==="
+          echo "$PLATFORMS" | jq -r 'to_entries[] | "\(.key): installer=\(.value.installer_name), sig_url=\(.value.sig_url // "NOT FOUND")"'
+          
+          # 下载所有签名文件并更新 platforms
+          # 使用临时文件避免 shell 循环作用域问题
+          echo "$PLATFORMS" > /tmp/platforms_temp.json
+          echo "$PLATFORMS" | jq -c 'to_entries[]' | while read -r entry; do
+            PLATFORM=$(echo "$entry" | jq -r '.key')
+            INSTALLER_URL=$(echo "$entry" | jq -r '.value.url')
+            INSTALLER_NAME=$(echo "$entry" | jq -r '.value.installer_name // empty')
+            SIG_URL=$(echo "$entry" | jq -r '.value.sig_url // empty')
+            
+            if [ -n "$SIG_URL" ] && [ "$SIG_URL" != "null" ] && [ "$SIG_URL" != "" ]; then
+              echo "Downloading signature for $PLATFORM from $SIG_URL"
+              # 使用 GitHub API 下载签名文件（需要认证）
+              # 注意：browser_download_url 可能需要重定向，使用 -L 跟随重定向
+              SIG_CONTENT=$(curl -sL -f -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/octet-stream" "$SIG_URL" 2>&1)
+              SIG_EXIT_CODE=$?
+              
+              if [ $SIG_EXIT_CODE -eq 0 ] && [ -n "$SIG_CONTENT" ]; then
+                # 转换为 base64
+                SIGNATURE=$(echo "$SIG_CONTENT" | base64 -w 0 2>/dev/null || echo "$SIG_CONTENT" | base64 | tr -d '\n')
+                
+                if [ -n "$SIGNATURE" ] && [ "$SIGNATURE" != "" ]; then
+                  echo "Successfully downloaded signature for $PLATFORM (length: ${#SIGNATURE})"
+                  # 更新临时文件
+                  CURRENT=$(cat /tmp/platforms_temp.json)
+                  echo "$CURRENT" | jq --arg platform "$PLATFORM" --arg url "$INSTALLER_URL" --arg signature "$SIGNATURE" '
+                    .[$platform] = {url: $url, signature: $signature}
+                  ' > /tmp/platforms_temp.json
+                else
+                  echo "Error: Failed to encode signature as base64 for $PLATFORM"
+                  CURRENT=$(cat /tmp/platforms_temp.json)
+                  echo "$CURRENT" | jq --arg platform "$PLATFORM" --arg url "$INSTALLER_URL" '
+                    .[$platform] = {url: $url, signature: ""}
+                  ' > /tmp/platforms_temp.json
+                fi
+              else
+                echo "Error: Failed to download signature for $PLATFORM (exit code: $SIG_EXIT_CODE)"
+                echo "Response: $SIG_CONTENT"
+                CURRENT=$(cat /tmp/platforms_temp.json)
+                echo "$CURRENT" | jq --arg platform "$PLATFORM" --arg url "$INSTALLER_URL" '
+                  .[$platform] = {url: $url, signature: ""}
+                ' > /tmp/platforms_temp.json
+              fi
+            else
+              echo "::warning::No signature file found for $PLATFORM (installer: $INSTALLER_NAME)"
+              echo "::warning::This platform will be excluded from updater JSON because signature verification will fail."
+              # 列出所有可用的签名文件用于调试
+              echo "Available signature files:"
+              echo "$ASSETS" | jq -r '.[] | select(.name | test("\\.sig$"; "i")) | .name' || echo "  (none found)"
+              # 不包含没有签名的平台，因为 Tauri updater 会验证签名
+              # 如果签名为空，更新会失败
+              CURRENT=$(cat /tmp/platforms_temp.json)
+              echo "$CURRENT" | jq --arg platform "$PLATFORM" 'del(.[$platform])' > /tmp/platforms_temp.json
+              echo "Excluded $PLATFORM from updater JSON (no signature available)"
+            fi
+          done
+          
+          PLATFORMS=$(cat /tmp/platforms_temp.json)
+          
+          # 检查是否有任何平台被包含
+          PLATFORM_COUNT=$(echo "$PLATFORMS" | jq 'length')
+          if [ "$PLATFORM_COUNT" -eq 0 ]; then
+            echo "::error::No platforms with valid signatures found!"
+            echo "::error::Please ensure TAURI_SIGNING_PRIVATE_KEY is configured and signature files are generated."
+            echo "::error::Updater JSON will be empty or invalid."
+          fi
+          
+          echo "=== Final platforms (with signatures) ==="
+          echo "$PLATFORMS" | jq '.'
+          echo "Total platforms with signatures: $PLATFORM_COUNT"
+          
+          # 构建最终的 updater JSON
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "$NOTES" \
+            --arg pub_date "$PUB_DATE" \
+            --argjson platforms "$PLATFORMS" \
+            '{version: $version, notes: $notes, pub_date: $pub_date, platforms: $platforms}' > tauri-updater.json
+          
+          cat tauri-updater.json
+
+      - name: Upload updater JSON to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          REPO="${{ github.repository }}"
+          
+          # 获取 release ID
+          RELEASE_ID=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$REPO/releases/tags/$TAG_NAME" | jq -r '.id')
+          
+          # 上传 tauri-updater.json
+          curl -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary @tauri-updater.json \
+            "https://uploads.github.com/repos/$REPO/releases/$RELEASE_ID/assets?name=tauri-updater.json"
