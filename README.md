@@ -18,6 +18,10 @@
 
 </div>
 
+<p align="center">
+  ![Main Window](screenshots/kairoa_en.png)
+</p>
+
 ## Features
 
 ### 🔐 Hash Calculator

@@ -63,10 +63,10 @@
 
 <aside class="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full transition-all duration-300 {isCollapsed ? 'w-20' : 'w-64'} relative z-10">
   <!-- 标题区域 -->
-  <div class="px-6 py-6 border-b border-gray-200 dark:border-gray-700 {isCollapsed ? 'px-2 py-4' : ''}">
+  <div class="px-6 py-3 border-b border-gray-200 dark:border-gray-700 {isCollapsed ? 'px-0 py-2' : ''}">
     {#if !isCollapsed}
       <div class="flex items-center gap-2">
-        <img src="/icon.png" alt="Kairoa" class="w-10 h-10 object-contain flex-shrink-0" title="Kairoa" />
+        <img src="/icon.png" alt="Kairoa" class="w-12 h-12 object-contain flex-shrink-0" title="Kairoa" />
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
           Kairoa
         </h1>
@@ -76,7 +76,7 @@
         <img 
           src="/icon.png" 
           alt="Kairoa" 
-          class="w-16 h-16 object-contain flex-shrink-0 cursor-pointer" 
+          class="w-12 h-12 object-contain flex-shrink-0 cursor-pointer" 
           onmouseenter={() => logoHovered = true}
           onmouseleave={() => logoHovered = false}
         />

@@ -18,6 +18,10 @@
 
 </div>
 
+<p align="center">
+  ![Main Window](screenshots/kairoa_zh.png)
+</p>
+
 ## 功能特性
 
 ### 🔐 Hash 计算器
