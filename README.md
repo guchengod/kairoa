@@ -56,6 +56,44 @@
 - Image preview and download support
 - Side-by-side input/output layout
 
+### 🌐 REST API Client
+- Send HTTP requests with multiple methods (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS)
+- Custom request headers
+- Multiple body types: JSON, Text, XML, Form Data, URL Encoded
+- Multi-tab support for managing multiple requests
+- Response display: status code, headers, body, and response time
+- **cURL Import/Export**: Import requests from cURL commands or export requests as cURL commands
+  - Automatically detects body parameters (`-d`, `--data`, `--data-raw`, `--data-binary`, `--data-urlencode`, `-F`, `--form`) and sets POST method when no explicit method is specified (following cURL best practices)
+  - Formatted cURL command output for easy readability
+  - Proper shell string escaping for correct command execution
+
+### 📊 Text Statistics
+- Character count (with/without spaces)
+- Word count (supports both English and Chinese)
+- Line and paragraph count
+- Character type analysis: Chinese characters, English characters, numbers, punctuation
+
+### 📅 Crontab Parser
+- Parse and validate cron expressions
+- Generate human-readable descriptions
+- Display next execution times
+
+### 🎨 Color Converter
+- Convert between color formats: HEX, RGB, RGBA, HSL, HSLA
+- Color preview
+- Bidirectional conversion between any supported formats
+
+### 🔢 Base Converter
+- Convert between number bases: Binary (2), Octal (8), Decimal (10), Hexadecimal (16)
+- Automatic prefix detection and removal (0b, 0o, 0x)
+- Bidirectional conversion with validation
+
+### 🔐 RSA Key Generator
+- Generate RSA key pairs (public/private keys)
+- Support for multiple key sizes: 1024, 2048, 3072, 4096 bits
+- Export in PEM or DER format
+- Copy keys to clipboard
+
 ## Interface
 
 - 🌓 **Light/Dark Theme**: Switch between light and dark modes
