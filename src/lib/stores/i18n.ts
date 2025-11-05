@@ -21,6 +21,8 @@ const translations = {
       baseConverter: 'Base Converter',
       rsa: 'RSA Key Pair Generator',
       jwt: 'JWT Decoder',
+      textDiff: 'Text Diff',
+      previewer: 'Previewer',
       apiClient: 'REST API Client',
       settings: 'Settings'
     },
@@ -242,6 +244,27 @@ const translations = {
       noSignature: 'No signature',
       signatureHint: 'Note: The signature is a cryptographic hash and cannot be decoded. It is used to verify the token integrity.'
     },
+    textDiff: {
+      oldText: 'Old Text',
+      newText: 'New Text',
+      oldTextPlaceholder: 'Enter the original text...',
+      newTextPlaceholder: 'Enter the new text...',
+      diff: 'Difference',
+      deleted: 'Deleted',
+      inserted: 'Inserted',
+      modified: 'Modified'
+    },
+    previewer: {
+      svg: 'SVG Preview',
+      markdown: 'Markdown Preview',
+      svgInput: 'SVG Code',
+      markdownInput: 'Markdown',
+      svgPlaceholder: 'Paste your SVG code here...',
+      markdownPlaceholder: 'Enter Markdown content...',
+      preview: 'Preview',
+      invalidSVG: 'Invalid SVG',
+      invalidSVGMessage: 'Please enter valid SVG code'
+    },
     apiClient: {
       urlPlaceholder: 'Enter API URL...',
       urlRequired: 'URL is required',
@@ -303,6 +326,8 @@ const translations = {
       baseConverter: '进制转换',
       rsa: 'RSA 密钥对生成器',
       jwt: 'JWT 解码器',
+      textDiff: '文本差异对比',
+      previewer: '预览器',
       apiClient: 'REST API 客户端',
       settings: '设置'
     },
@@ -523,6 +548,27 @@ const translations = {
       noPayload: '无载荷',
       noSignature: '无签名',
       signatureHint: '注意：签名是加密哈希值，无法解码。它用于验证令牌的完整性。'
+    },
+    textDiff: {
+      oldText: '原始文本',
+      newText: '新文本',
+      oldTextPlaceholder: '输入原始文本...',
+      newTextPlaceholder: '输入新文本...',
+      diff: '差异对比',
+      deleted: '已删除',
+      inserted: '已插入',
+      modified: '已修改'
+    },
+    previewer: {
+      svg: 'SVG 预览',
+      markdown: 'Markdown 预览',
+      svgInput: 'SVG 代码',
+      markdownInput: 'Markdown',
+      svgPlaceholder: '在此处粘贴 SVG 代码...',
+      markdownPlaceholder: '输入 Markdown 内容...',
+      preview: '预览',
+      invalidSVG: '无效的 SVG',
+      invalidSVGMessage: '请输入有效的 SVG 代码'
     },
     apiClient: {
       urlPlaceholder: '输入 API URL...',

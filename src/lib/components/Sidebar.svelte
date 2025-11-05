@@ -2,7 +2,7 @@
   import { page } from '$app/stores';
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
-  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, Lock } from 'lucide-svelte';
+  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, Lock, GitCompare, Eye } from 'lucide-svelte';
 
   const navItems = [
     { path: '/api-client', icon: Globe, key: 'nav.apiClient' },
@@ -13,6 +13,8 @@
     { path: '/json', icon: FileJson, key: 'nav.json' },
     { path: '/jwt', icon: Lock, key: 'nav.jwt' },
     { path: '/text-stats', icon: FileText, key: 'nav.textStats' },
+    { path: '/text-diff', icon: GitCompare, key: 'nav.textDiff' },
+    { path: '/previewer', icon: Eye, key: 'nav.previewer' },
     { path: '/crontab', icon: Calendar, key: 'nav.crontab' },
     { path: '/color', icon: Palette, key: 'nav.color' },
     { path: '/base-converter', icon: Binary, key: 'nav.baseConverter' },
