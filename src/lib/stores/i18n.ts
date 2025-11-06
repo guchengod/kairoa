@@ -263,7 +263,8 @@ const translations = {
       markdownPlaceholder: 'Enter Markdown content...',
       preview: 'Preview',
       invalidSVG: 'Invalid SVG',
-      invalidSVGMessage: 'Please enter valid SVG code'
+      invalidSVGMessage: 'Please enter valid SVG code',
+      selectFile: 'Select File'
     },
     apiClient: {
       urlPlaceholder: 'Enter API URL...',
@@ -568,7 +569,8 @@ const translations = {
       markdownPlaceholder: '输入 Markdown 内容...',
       preview: '预览',
       invalidSVG: '无效的 SVG',
-      invalidSVGMessage: '请输入有效的 SVG 代码'
+      invalidSVGMessage: '请输入有效的 SVG 代码',
+      selectFile: '选择文件'
     },
     apiClient: {
       urlPlaceholder: '输入 API URL...',

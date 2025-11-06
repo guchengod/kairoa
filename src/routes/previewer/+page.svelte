@@ -8,6 +8,8 @@
   let markdownContent = $state('');
   let copied = $state<{ svg: boolean; markdown: boolean; preview: boolean }>({ svg: false, markdown: false, preview: false });
   let previewElement: HTMLDivElement | null = null;
+  let svgFileInput: HTMLInputElement | null = null;
+  let markdownFileInput: HTMLInputElement | null = null;
 
   let translations = $derived($translationsStore);
 
@@ -44,10 +46,82 @@
   function clear() {
     if (activeView === 'svg') {
       svgContent = '';
+      if (svgFileInput) {
+        svgFileInput.value = '';
+      }
     } else {
       markdownContent = '';
+      if (markdownFileInput) {
+        markdownFileInput.value = '';
+      }
     }
     copied = { svg: false, markdown: false, preview: false };
+  }
+
+  async function handleSvgFileSelect(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (!file) return;
+
+    // 检查文件大小（限制为 10MB）
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      alert(`File size exceeds 10MB limit. Please select a smaller file.`);
+      target.value = '';
+      return;
+    }
+
+    // 检查文件类型
+    if (!file.type.includes('svg') && !file.name.toLowerCase().endsWith('.svg')) {
+      alert('Please select an SVG file.');
+      target.value = '';
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      svgContent = text;
+    } catch (error) {
+      console.error('Failed to read file:', error);
+      alert('Failed to read file. Please try again.');
+      target.value = '';
+    }
+  }
+
+  async function handleMarkdownFileSelect(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (!file) return;
+
+    // 检查文件大小（限制为 10MB）
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      alert(`File size exceeds 10MB limit. Please select a smaller file.`);
+      target.value = '';
+      return;
+    }
+
+    // 检查文件类型
+    const validExtensions = ['.md', '.markdown', '.txt'];
+    const fileName = file.name.toLowerCase();
+    const isValidType = validExtensions.some(ext => fileName.endsWith(ext)) || 
+                        file.type.includes('markdown') || 
+                        file.type === 'text/plain';
+    
+    if (!isValidType) {
+      alert('Please select a Markdown file (.md, .markdown, or .txt).');
+      target.value = '';
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      markdownContent = text;
+    } catch (error) {
+      console.error('Failed to read file:', error);
+      alert('Failed to read file. Please try again.');
+      target.value = '';
+    }
   }
 
   // 检查 SVG 内容是否有效
@@ -121,12 +195,24 @@
   <!-- 内容区域 -->
   <div class="flex-1 min-h-0 flex flex-col">
     {#if activeView === 'svg'}
-      <!-- SVG Preview -->
-      <div class="card flex-shrink-0 mb-4">
-        <div class="space-y-4">
-          <div class="flex items-center justify-between">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('previewer.svgInput')}
+      <!-- SVG Preview - 左右布局 -->
+      <div class="flex-1 min-h-0 flex flex-col">
+        <div class="flex items-center justify-between mb-2 flex-shrink-0">
+          <div class="flex items-center gap-4">
+            <input
+              type="file"
+              accept=".svg,image/svg+xml"
+              onchange={handleSvgFileSelect}
+              bind:this={svgFileInput}
+              class="hidden"
+              id="svg-file-input"
+            />
+            <label
+              for="svg-file-input"
+              class="btn-secondary cursor-pointer flex items-center text-sm"
+            >
+              <FileImage class="w-4 h-4 inline mr-1" />
+              {t('previewer.selectFile')}
             </label>
             <button
               onclick={() => copyToClipboard(svgContent, 'svg')}
@@ -141,54 +227,84 @@
               {/if}
             </button>
           </div>
-          <textarea
-            bind:value={svgContent}
-            placeholder={t('previewer.svgPlaceholder')}
-            class="textarea font-mono text-sm min-h-[150px]"
-          ></textarea>
-          <div class="flex gap-2">
-            <button
-              onclick={clear}
-              class="btn-secondary"
-            >
-              <Trash2 class="w-4 h-4 inline mr-1" />
-              {t('common.clear')}
-            </button>
+          <button
+            onclick={clear}
+            class="btn-secondary text-sm"
+          >
+            <Trash2 class="w-4 h-4 inline mr-1" />
+            {t('common.clear')}
+          </button>
+        </div>
+        
+        <div class="flex-1 min-h-0 grid grid-cols-2 gap-2">
+          <!-- SVG 输入 -->
+          <div class="card flex flex-col h-full">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('previewer.svgInput')}
+              </label>
+            </div>
+            <div class="flex-1 min-h-0">
+              <textarea
+                bind:value={svgContent}
+                placeholder={t('previewer.svgPlaceholder')}
+                class="textarea font-mono text-sm h-full resize-none"
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- SVG 预览 -->
+          <div class="card flex flex-col h-full">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0">
+              <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('previewer.preview')}
+              </h3>
+              {#if svgContent.trim() && !isValidSVG(svgContent)}
+                <span class="text-xs text-red-600 dark:text-red-400">
+                  {t('previewer.invalidSVG')}
+                </span>
+              {/if}
+            </div>
+            <div class="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg overflow-auto bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4 min-h-0">
+              {#if svgContent.trim()}
+                {#if isValidSVG(svgContent)}
+                  <div class="max-w-full max-h-full">
+                    {@html svgContent}
+                  </div>
+                {:else}
+                  <div class="text-center text-gray-400 dark:text-gray-500">
+                    <p class="text-sm">{t('previewer.invalidSVGMessage')}</p>
+                  </div>
+                {/if}
+              {:else}
+                <div class="text-center text-gray-400 dark:text-gray-500 text-sm">
+                  {t('previewer.svgPlaceholder')}
+                </div>
+              {/if}
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- SVG 预览 -->
-      {#if svgContent.trim()}
-        <div class="card flex-1 min-h-0 flex flex-col">
-          <div class="flex items-center justify-between mb-3 flex-shrink-0">
-            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">
-              {t('previewer.preview')}
-            </h3>
-            {#if !isValidSVG(svgContent)}
-              <span class="text-xs text-red-600 dark:text-red-400">
-                {t('previewer.invalidSVG')}
-              </span>
-            {/if}
-          </div>
-          <div class="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg overflow-auto bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-            {#if isValidSVG(svgContent)}
-              <div class="max-w-full max-h-full">
-                {@html svgContent}
-              </div>
-            {:else}
-              <div class="text-center text-gray-400 dark:text-gray-500">
-                <p class="text-sm">{t('previewer.invalidSVGMessage')}</p>
-              </div>
-            {/if}
-          </div>
-        </div>
-      {/if}
     {:else if activeView === 'markdown'}
       <!-- Markdown Preview - 左右布局 -->
       <div class="flex-1 min-h-0 flex flex-col">
         <div class="flex items-center justify-between mb-2 flex-shrink-0">
           <div class="flex items-center gap-4">
+            <input
+              type="file"
+              accept=".md,.markdown,.txt,text/markdown,text/plain"
+              onchange={handleMarkdownFileSelect}
+              bind:this={markdownFileInput}
+              class="hidden"
+              id="markdown-file-input"
+            />
+            <label
+              for="markdown-file-input"
+              class="btn-secondary cursor-pointer flex items-center text-sm"
+            >
+              <FileText class="w-4 h-4 inline mr-1" />
+              {t('previewer.selectFile')}
+            </label>
             <button
               onclick={clear}
               class="btn-secondary text-sm"
@@ -212,7 +328,7 @@
           </button>
         </div>
         
-        <div class="flex-1 min-h-0 grid grid-cols-2 gap-4">
+        <div class="flex-1 min-h-0 grid grid-cols-2 gap-2">
           <!-- Markdown 输入 -->
           <div class="card flex flex-col h-full">
             <div class="flex items-center justify-between mb-2 flex-shrink-0">
