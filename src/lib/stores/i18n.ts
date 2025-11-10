@@ -268,11 +268,16 @@ const translations = {
       svgPlaceholder: 'Paste your SVG code here...',
       markdownPlaceholder: 'Enter Markdown content...',
       mermaidPlaceholder: 'Enter Mermaid diagram code...',
+      svgPreviewPlaceholder: 'Preview will appear here',
+      markdownPreviewPlaceholder: 'Preview will appear here',
+      mermaidPreviewPlaceholder: 'Preview will appear here',
       preview: 'Preview',
       invalidSVG: 'Invalid SVG',
       invalidSVGMessage: 'Please enter valid SVG code',
       selectFile: 'Select File',
-      exportImage: 'Export as Image'
+      exportImage: 'Export as Image',
+      fullscreen: 'Fullscreen',
+      exitFullscreen: 'Exit Fullscreen'
     },
     apiClient: {
       urlPlaceholder: 'Enter API URL...',
@@ -582,11 +587,16 @@ const translations = {
       svgPlaceholder: '在此处粘贴 SVG 代码...',
       markdownPlaceholder: '输入 Markdown 内容...',
       mermaidPlaceholder: '输入 Mermaid 图表代码...',
+      svgPreviewPlaceholder: '预览将在此处显示',
+      markdownPreviewPlaceholder: '预览将在此处显示',
+      mermaidPreviewPlaceholder: '预览将在此处显示',
       preview: '预览',
       invalidSVG: '无效的 SVG',
       invalidSVGMessage: '请输入有效的 SVG 代码',
       selectFile: '选择文件',
-      exportImage: '导出为图片'
+      exportImage: '导出为图片',
+      fullscreen: '全屏',
+      exitFullscreen: '退出全屏'
     },
     apiClient: {
       urlPlaceholder: '输入 API URL...',
