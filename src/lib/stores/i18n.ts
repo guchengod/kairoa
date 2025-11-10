@@ -19,6 +19,7 @@ const translations = {
       crontab: 'Crontab Calculator',
       color: 'Color Converter',
       baseConverter: 'Base Converter',
+      crypto: 'Crypto',
       rsa: 'RSA Key Pair Generator',
       jwt: 'JWT Decoder',
       textDiff: 'Text Diff',
@@ -240,6 +241,33 @@ const translations = {
       warning: 'Warning:',
       warningDescription: 'Keep your private key secure and never share it with anyone. The private key is sensitive information that should be protected.'
     },
+    crypto: {
+      symmetric: {
+        title: 'Symmetric Algorithm',
+        algorithm: 'Algorithm',
+        mode: 'Mode',
+        key: 'Key',
+        keyPlaceholder: 'Enter key',
+        keyDescription: 'Key must be 16, 24, or 32 bytes (128, 192, or 256 bits)',
+        generateKey: 'Generate Key',
+        iv: 'IV (Initialization Vector)',
+        ivPlaceholder: 'Enter IV or leave empty to generate automatically',
+        ivDescription: 'IV is required for decryption. AES-GCM uses 12 bytes, AES-CBC uses 16 bytes',
+        encrypt: 'Encrypt',
+        decrypt: 'Decrypt',
+        plaintext: 'Plaintext',
+        plaintextPlaceholder: 'Enter text to encrypt...',
+        ciphertext: 'Ciphertext',
+        ciphertextPlaceholder: 'Encrypted result will appear here...',
+        keyRequired: 'Key is required',
+        inputRequired: 'Input is required',
+        plaintextRequired: 'Plaintext is required',
+        ciphertextRequired: 'Ciphertext is required',
+        ivRequired: 'IV is required',
+        invalidKeyLength: 'Invalid key length',
+        invalidIvLength: 'Invalid IV length'
+      }
+    },
     jwt: {
       title: 'JWT Decoder',
       subtitle: 'Decode and inspect JWT (JSON Web Token) tokens',
@@ -344,6 +372,7 @@ const translations = {
       crontab: 'Crontab 计算器',
       color: '颜色转换',
       baseConverter: '进制转换',
+      crypto: '加解密',
       rsa: 'RSA 密钥对生成器',
       jwt: 'JWT 解码器',
       textDiff: '文本差异对比',
@@ -564,6 +593,33 @@ const translations = {
       privateKey: '私钥',
       warning: '警告：',
       warningDescription: '请妥善保管您的私钥，不要与任何人分享。私钥是敏感信息，应该受到保护。'
+    },
+    crypto: {
+      symmetric: {
+        title: '对称算法',
+        algorithm: '算法',
+        mode: '模式',
+        key: '密钥',
+        keyPlaceholder: '输入密钥',
+        keyDescription: '密钥必须是 16、24 或 32 字节（128、192 或 256 位）',
+        generateKey: '生成密钥',
+        iv: 'IV (初始化向量)',
+        ivPlaceholder: '输入 IV 或留空以自动生成',
+        ivDescription: '解密时需要 IV。AES-GCM 使用 12 字节，AES-CBC 使用 16 字节',
+        encrypt: '加密',
+        decrypt: '解密',
+        plaintext: '明文',
+        plaintextPlaceholder: '输入要加密的文本...',
+        ciphertext: '密文',
+        ciphertextPlaceholder: '加密结果将在此显示...',
+        keyRequired: '需要密钥',
+        inputRequired: '需要输入',
+        plaintextRequired: '需要明文',
+        ciphertextRequired: '需要密文',
+        ivRequired: '需要 IV',
+        invalidKeyLength: '密钥长度无效',
+        invalidIvLength: 'IV 长度无效'
+      }
     },
     jwt: {
       title: 'JWT 解码器',

@@ -11,8 +11,8 @@
   // Check URL parameter for type
   $effect(() => {
     const typeParam = $page.url.searchParams.get('type');
-    if (typeParam === 'jwt') {
-      encodeType = 'jwt';
+    if (typeParam === 'base64' || typeParam === 'image-base64' || typeParam === 'url' || typeParam === 'ascii' || typeParam === 'jwt') {
+      encodeType = typeParam as EncodeType;
     }
   });
   let input = $state('');

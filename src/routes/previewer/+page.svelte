@@ -6,12 +6,21 @@
   import { onMount } from 'svelte';
   import html2canvas from 'html2canvas';
   import { browser } from '$app/environment';
+  import { page } from '$app/stores';
   
   // 动态导入 Tauri 插件（仅在需要时加载）
   let dialogModule: typeof import('@tauri-apps/plugin-dialog') | null = null;
   let fsModule: typeof import('@tauri-apps/plugin-fs') | null = null;
 
   let activeView = $state<'svg' | 'markdown' | 'mermaid'>('svg');
+  
+  // Check URL parameter for type
+  $effect(() => {
+    const typeParam = $page.url.searchParams.get('type');
+    if (typeParam === 'svg' || typeParam === 'markdown' || typeParam === 'mermaid') {
+      activeView = typeParam;
+    }
+  });
   let svgContent = $state('');
   let markdownContent = $state('');
   let mermaidContent = $state('');

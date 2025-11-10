@@ -2,22 +2,51 @@
   import { page } from '$app/stores';
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
-  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye } from 'lucide-svelte';
+  import { goto } from '$app/navigation';
+  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock } from 'lucide-svelte';
 
   const navItems = [
     { path: '/api-client', icon: Globe, key: 'nav.apiClient' },
     { path: '/hash', icon: Hash, key: 'nav.hash' },
     { path: '/time', icon: Clock, key: 'nav.time' },
     { path: '/uuid', icon: Key, key: 'nav.uuid' },
-    { path: '/encode-decode', icon: Code, key: 'nav.encodeDecode' },
+    { 
+      path: '/encode-decode', 
+      icon: Code, 
+      key: 'nav.encodeDecode',
+      subItems: [
+        { label: 'Base64', key: 'encodeDecode.base64', type: 'base64' },
+        { label: 'Image Base64', key: 'encodeDecode.imageBase64', type: 'image-base64' },
+        { label: 'URL', key: 'encodeDecode.urlEncoded', type: 'url' },
+        { label: 'ASCII', key: 'encodeDecode.ascii', type: 'ascii' },
+        { label: 'JWT', key: 'jwt.title', type: 'jwt' }
+      ]
+    },
+    { 
+      path: '/crypto', 
+      icon: Lock, 
+      key: 'nav.crypto',
+      subItems: [
+        { label: 'RSA 密钥对', key: 'rsa.title', type: 'rsa' },
+        { label: '对称算法', key: 'crypto.symmetric.title', type: 'symmetric' }
+      ]
+    },
     { path: '/json', icon: FileJson, key: 'nav.json' },
     { path: '/text-stats', icon: FileText, key: 'nav.textStats' },
     { path: '/text-diff', icon: GitCompare, key: 'nav.textDiff' },
-    { path: '/previewer', icon: Eye, key: 'nav.previewer' },
+    { 
+      path: '/previewer', 
+      icon: Eye, 
+      key: 'nav.previewer',
+      subItems: [
+        { label: 'SVG', key: 'previewer.svg', type: 'svg' },
+        { label: 'Markdown', key: 'previewer.markdown', type: 'markdown' },
+        { label: 'Mermaid', key: 'previewer.mermaid', type: 'mermaid' }
+      ]
+    },
     { path: '/crontab', icon: Calendar, key: 'nav.crontab' },
     { path: '/color', icon: Palette, key: 'nav.color' },
     { path: '/base-converter', icon: Binary, key: 'nav.baseConverter' },
-    { path: '/rsa', icon: Shield, key: 'nav.rsa' },
   ];
 
   // 从 localStorage 加载侧边栏状态
@@ -39,6 +68,7 @@
   let tooltipPosition = $state<{ x: number; y: number } | null>(null);
   let settingsTooltipPosition = $state<{ x: number; y: number } | null>(null);
   let toggleTooltipPosition = $state<{ x: number; y: number } | null>(null);
+  let hideTooltipTimeout: ReturnType<typeof setTimeout> | null = null;
 
   function toggleSidebar() {
     isCollapsed = !isCollapsed;
@@ -143,18 +173,44 @@
             ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'}"
           onmouseenter={(e) => {
+            // 取消隐藏工具提示的延迟
+            if (hideTooltipTimeout) {
+              clearTimeout(hideTooltipTimeout);
+              hideTooltipTimeout = null;
+            }
             hoveredMenuItem = item.path;
             if (isCollapsed && e.currentTarget) {
               const rect = e.currentTarget.getBoundingClientRect();
+              // 如果有子菜单，从顶部开始显示；否则垂直居中
               tooltipPosition = {
-                x: rect.right + 8,
-                y: rect.top + rect.height / 2
+                x: rect.right + 4, // 减少间隙，从 8px 改为 4px
+                y: (item.subItems && item.subItems.length > 0) ? rect.top : rect.top + rect.height / 2
               };
             }
           }}
-          onmouseleave={() => {
-            hoveredMenuItem = null;
-            tooltipPosition = null;
+          onmouseleave={(e) => {
+            // 检查鼠标是否移动到子菜单
+            const relatedTarget = e.relatedTarget as HTMLElement;
+            if (!relatedTarget || !relatedTarget.closest('.submenu-tooltip')) {
+              // 添加延迟，给用户时间移动到子菜单
+              if (item.subItems && item.subItems.length > 0) {
+                if (hideTooltipTimeout) {
+                  clearTimeout(hideTooltipTimeout);
+                }
+                hideTooltipTimeout = setTimeout(() => {
+                  // 再次检查鼠标是否在子菜单上
+                  const tooltip = document.querySelector('.submenu-tooltip');
+                  if (!tooltip || !tooltip.matches(':hover')) {
+                    hoveredMenuItem = null;
+                    tooltipPosition = null;
+                  }
+                  hideTooltipTimeout = null;
+                }, 200); // 200ms 延迟
+              } else {
+                hoveredMenuItem = null;
+                tooltipPosition = null;
+              }
+            }
           }}
         >
           <div class="w-5 h-5 shrink-0 flex-none flex items-center justify-center">
@@ -172,12 +228,60 @@
   {#if isCollapsed && hoveredMenuItem && tooltipPosition}
     {@const item = navItems.find(i => i.path === hoveredMenuItem)}
     {#if item}
-      <div 
-        class="fixed px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded whitespace-nowrap z-[9999] pointer-events-none"
-        style="left: {tooltipPosition.x}px; top: {tooltipPosition.y}px; transform: translateY(-50%);"
-      >
-        {t(item.key)}
-      </div>
+      {#if item.subItems && item.subItems.length > 0}
+        <!-- 显示子菜单列表 -->
+        <div 
+          class="submenu-tooltip fixed bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg z-[9999] py-2 min-w-[160px]"
+          style="left: {tooltipPosition.x}px; top: {tooltipPosition.y}px;"
+          onmouseenter={() => {
+            // 取消隐藏工具提示的延迟
+            if (hideTooltipTimeout) {
+              clearTimeout(hideTooltipTimeout);
+              hideTooltipTimeout = null;
+            }
+            // 保持工具提示显示，确保 hoveredMenuItem 仍然有效
+            if (!hoveredMenuItem) {
+              hoveredMenuItem = item.path;
+            }
+          }}
+          onmouseleave={() => {
+            hoveredMenuItem = null;
+            tooltipPosition = null;
+            if (hideTooltipTimeout) {
+              clearTimeout(hideTooltipTimeout);
+              hideTooltipTimeout = null;
+            }
+          }}
+        >
+          <div class="px-3 py-1.5 font-semibold border-b border-gray-700 dark:border-gray-600">
+            {t(item.key)}
+          </div>
+          <div class="py-1">
+            {#each item.subItems as subItem}
+              <a
+                href="{item.path}{subItem.type ? `?type=${subItem.type}` : ''}"
+                class="block px-3 py-1.5 text-gray-300 dark:text-gray-400 hover:bg-gray-800 dark:hover:bg-gray-600 hover:text-white dark:hover:text-gray-100 cursor-pointer transition-colors"
+                onclick={(e) => {
+                  e.preventDefault();
+                  goto(`${item.path}${subItem.type ? `?type=${subItem.type}` : ''}`);
+                  hoveredMenuItem = null;
+                  tooltipPosition = null;
+                }}
+              >
+                {t(subItem.key)}
+              </a>
+            {/each}
+          </div>
+        </div>
+      {:else}
+        <!-- 显示单个标签 -->
+        <div 
+          class="fixed px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded whitespace-nowrap z-[9999] pointer-events-none"
+          style="left: {tooltipPosition.x}px; top: {tooltipPosition.y}px; transform: translateY(-50%);"
+        >
+          {t(item.key)}
+        </div>
+      {/if}
     {/if}
   {/if}
 
