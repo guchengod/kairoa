@@ -518,8 +518,8 @@
           container.style.padding = '1rem';
           container.style.display = 'flex';
           container.style.flexDirection = 'column';
-          container.style.justifyContent = 'center';
-          container.style.alignItems = 'center';
+          container.style.justifyContent = 'flex-start';
+          container.style.alignItems = 'flex-start';
           // 使用 Tailwind 的背景色类
           container.classList.add('bg-white', 'dark:bg-gray-900');
           
@@ -539,87 +539,48 @@
             // 保存预览内容区域的原始样式
             previewContent.setAttribute('data-original-style', previewContent.getAttribute('style') || '');
             
-            // 设置全屏样式
+            // 设置全屏样式 - 只修改容器，不修改 SVG 本身
             previewContent.style.flex = '1';
             previewContent.style.width = '100%';
             previewContent.style.maxWidth = '100%';
-            previewContent.style.display = 'flex';
-            previewContent.style.alignItems = 'center';
-            previewContent.style.justifyContent = 'center';
             previewContent.style.height = '100%';
             previewContent.style.margin = '0';
             previewContent.style.border = 'none';
             previewContent.style.borderRadius = '0';
-            previewContent.style.padding = '2rem';
+            previewContent.style.padding = '1rem';
+            previewContent.style.boxSizing = 'border-box';
+            previewContent.style.overflow = 'auto';
+            previewContent.style.display = 'flex';
+            previewContent.style.flexDirection = 'column';
+            previewContent.style.alignItems = 'center';
+            previewContent.style.justifyContent = 'flex-start';
             
-            // 找到实际的内容元素并放大
-            // SVG 内容 - 放大到尽可能大
-            const svgElement = previewContent.querySelector('svg');
-            if (svgElement) {
-              svgElement.setAttribute('data-original-width', svgElement.getAttribute('width') || '');
-              svgElement.setAttribute('data-original-height', svgElement.getAttribute('height') || '');
-              svgElement.setAttribute('data-original-style', svgElement.getAttribute('style') || '');
-              svgElement.style.width = '95%';
-              svgElement.style.height = '95%';
-              svgElement.style.maxWidth = '95vw';
-              svgElement.style.maxHeight = '95vh';
-              svgElement.style.objectFit = 'contain';
-            }
+            // 确保滚动到顶部
+            setTimeout(() => {
+              previewContent.scrollTop = 0;
+            }, 0);
             
-            // Markdown 内容 - 增大字体和宽度
+            // Markdown 内容 - 适度增大字体
             const markdownContent = previewContent.querySelector('.markdown-content');
             if (markdownContent) {
               (markdownContent as HTMLElement).setAttribute('data-original-style', (markdownContent as HTMLElement).getAttribute('style') || '');
-              (markdownContent as HTMLElement).style.fontSize = '2rem';
+              (markdownContent as HTMLElement).style.fontSize = '1.25rem';
               (markdownContent as HTMLElement).style.lineHeight = '1.8';
-              (markdownContent as HTMLElement).style.maxWidth = '90%';
-              (markdownContent as HTMLElement).style.width = '90%';
-              // 放大 Markdown 内的所有元素
-              const markdownElements = (markdownContent as HTMLElement).querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, code, pre, blockquote');
-              markdownElements.forEach((el) => {
-                const elStyle = (el as HTMLElement).style;
-                const originalFontSize = elStyle.fontSize;
-                (el as HTMLElement).setAttribute('data-original-font-size', originalFontSize || '');
-                if (originalFontSize) {
-                  // 如果已有字体大小，放大 2 倍
-                  const size = parseFloat(originalFontSize);
-                  const unit = originalFontSize.replace(/[\d.]/g, '');
-                  elStyle.fontSize = `${size * 2}${unit}`;
-                }
-              });
+              (markdownContent as HTMLElement).style.maxWidth = '100%';
+              (markdownContent as HTMLElement).style.width = '100%';
             }
             
-            // Mermaid 内容 - 放大到尽可能大
+            // Mermaid 内容 - 保持原始大小，让其自适应
             const mermaidSvg = previewContent.querySelector('svg.mermaid, .mermaid svg, .mermaid');
             if (mermaidSvg) {
               (mermaidSvg as HTMLElement).setAttribute('data-original-style', (mermaidSvg as HTMLElement).getAttribute('style') || '');
               if (mermaidSvg.tagName === 'SVG') {
-                (mermaidSvg as HTMLElement).style.width = '95%';
-                (mermaidSvg as HTMLElement).style.height = '95%';
-                (mermaidSvg as HTMLElement).style.maxWidth = '95vw';
-                (mermaidSvg as HTMLElement).style.maxHeight = '95vh';
-              } else {
-                // 如果是 .mermaid 容器，使用 transform 放大
-                (mermaidSvg as HTMLElement).style.transform = 'scale(2)';
-                (mermaidSvg as HTMLElement).style.transformOrigin = 'center center';
+                (mermaidSvg as HTMLElement).style.maxWidth = '100%';
+                (mermaidSvg as HTMLElement).style.maxHeight = '100%';
+                (mermaidSvg as HTMLElement).style.width = 'auto';
+                (mermaidSvg as HTMLElement).style.height = 'auto';
               }
             }
-            
-            // 通用：对预览内容区域内的所有直接子元素应用放大（如果还没有被处理）
-            Array.from(previewContent.children).forEach((child) => {
-              const childEl = child as HTMLElement;
-              if (childEl && !childEl.hasAttribute('data-fullscreen-processed')) {
-                // 检查是否是 SVG 或已处理的元素
-                if (childEl.tagName !== 'SVG' && !childEl.classList.contains('markdown-content') && !childEl.classList.contains('mermaid')) {
-                  childEl.setAttribute('data-original-style', childEl.getAttribute('style') || '');
-                  childEl.setAttribute('data-fullscreen-processed', 'true');
-                  // 使用 transform scale 放大，同时保持布局
-                  const currentTransform = childEl.style.transform || '';
-                  childEl.style.transform = currentTransform ? `${currentTransform} scale(2)` : 'scale(2)';
-                  childEl.style.transformOrigin = 'center center';
-                }
-              }
-            });
           }
           
           // 添加 ESC 键监听
@@ -669,21 +630,7 @@
             }
             previewContent.removeAttribute('data-original-style');
             
-            // 恢复 SVG 元素的原始样式
-            const svgElement = previewContent.querySelector('svg');
-            if (svgElement && svgElement.hasAttribute('data-original-width')) {
-              const originalWidth = svgElement.getAttribute('data-original-width');
-              const originalHeight = svgElement.getAttribute('data-original-height');
-              const originalStyle = svgElement.getAttribute('data-original-style');
-              if (originalWidth) svgElement.setAttribute('width', originalWidth);
-              else svgElement.removeAttribute('width');
-              if (originalHeight) svgElement.setAttribute('height', originalHeight);
-              else svgElement.removeAttribute('height');
-              if (originalStyle) svgElement.setAttribute('style', originalStyle);
-              else svgElement.removeAttribute('style');
-              svgElement.removeAttribute('data-original-width');
-              svgElement.removeAttribute('data-original-height');
-            }
+            // SVG 元素和 wrapper 没有被修改，所以不需要恢复
             
             // 恢复 Markdown 内容的原始样式
             const markdownContent = previewContent.querySelector('.markdown-content');
@@ -696,17 +643,6 @@
               }
               (markdownContent as HTMLElement).removeAttribute('data-original-style');
               
-              // 恢复 Markdown 内所有元素的字体大小
-              const markdownElements = (markdownContent as HTMLElement).querySelectorAll('[data-original-font-size]');
-              markdownElements.forEach((el) => {
-                const originalFontSize = (el as HTMLElement).getAttribute('data-original-font-size');
-                if (originalFontSize) {
-                  (el as HTMLElement).style.fontSize = originalFontSize;
-                } else {
-                  (el as HTMLElement).style.fontSize = '';
-                }
-                (el as HTMLElement).removeAttribute('data-original-font-size');
-              });
             }
             
             // 恢复 Mermaid 内容的原始样式
@@ -720,21 +656,6 @@
               }
               (mermaidSvg as HTMLElement).removeAttribute('data-original-style');
             }
-            
-            // 恢复所有子元素的 transform
-            Array.from(previewContent.children).forEach((child) => {
-              const childEl = child as HTMLElement;
-              if (childEl && childEl.hasAttribute('data-fullscreen-processed')) {
-                const originalStyle = childEl.getAttribute('data-original-style');
-                if (originalStyle) {
-                  childEl.setAttribute('style', originalStyle);
-                } else {
-                  childEl.style.transform = '';
-                }
-                childEl.removeAttribute('data-fullscreen-processed');
-                childEl.removeAttribute('data-original-style');
-              }
-            });
           }
           
           // 移除退出全屏按钮
@@ -854,79 +775,43 @@
       // 保存预览内容区域的原始样式
       previewContent.setAttribute('data-original-style', previewContent.getAttribute('style') || '');
       
-      // 设置全屏样式
-      previewContent.style.padding = '2rem';
+      // 设置全屏样式 - 只修改容器，不修改 SVG 本身
+      previewContent.style.padding = '1rem';
+      previewContent.style.width = '100%';
+      previewContent.style.height = '100%';
+      previewContent.style.boxSizing = 'border-box';
+      previewContent.style.overflow = 'auto';
       previewContent.style.display = 'flex';
+      previewContent.style.flexDirection = 'column';
       previewContent.style.alignItems = 'center';
-      previewContent.style.justifyContent = 'center';
+      previewContent.style.justifyContent = 'flex-start';
       
-      // SVG 内容 - 放大到尽可能大
-      const svgElement = previewContent.querySelector('svg');
-      if (svgElement) {
-        svgElement.setAttribute('data-original-width', svgElement.getAttribute('width') || '');
-        svgElement.setAttribute('data-original-height', svgElement.getAttribute('height') || '');
-        svgElement.setAttribute('data-original-style', svgElement.getAttribute('style') || '');
-        svgElement.style.width = '95%';
-        svgElement.style.height = '95%';
-        svgElement.style.maxWidth = '95vw';
-        svgElement.style.maxHeight = '95vh';
-        svgElement.style.objectFit = 'contain';
-      }
+      // 确保滚动到顶部
+      setTimeout(() => {
+        previewContent.scrollTop = 0;
+      }, 0);
       
       // Markdown 内容 - 增大字体和宽度
       const markdownContent = previewContent.querySelector('.markdown-content');
       if (markdownContent) {
         (markdownContent as HTMLElement).setAttribute('data-original-style', (markdownContent as HTMLElement).getAttribute('style') || '');
-        (markdownContent as HTMLElement).style.fontSize = '2rem';
+        (markdownContent as HTMLElement).style.fontSize = '1.25rem';
         (markdownContent as HTMLElement).style.lineHeight = '1.8';
-        (markdownContent as HTMLElement).style.maxWidth = '90%';
-        (markdownContent as HTMLElement).style.width = '90%';
-        // 放大 Markdown 内的所有元素
-        const markdownElements = (markdownContent as HTMLElement).querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, code, pre, blockquote');
-        markdownElements.forEach((el) => {
-          const elStyle = (el as HTMLElement).style;
-          const originalFontSize = elStyle.fontSize;
-          (el as HTMLElement).setAttribute('data-original-font-size', originalFontSize || '');
-          if (originalFontSize) {
-            // 如果已有字体大小，放大 2 倍
-            const size = parseFloat(originalFontSize);
-            const unit = originalFontSize.replace(/[\d.]/g, '');
-            elStyle.fontSize = `${size * 2}${unit}`;
-          }
-        });
+        (markdownContent as HTMLElement).style.maxWidth = '100%';
+        (markdownContent as HTMLElement).style.width = '100%';
       }
       
-      // Mermaid 内容 - 放大到尽可能大
+      // Mermaid 内容 - 保持原始大小，让其自适应
       const mermaidSvg = previewContent.querySelector('svg.mermaid, .mermaid svg, .mermaid');
       if (mermaidSvg) {
         (mermaidSvg as HTMLElement).setAttribute('data-original-style', (mermaidSvg as HTMLElement).getAttribute('style') || '');
         if (mermaidSvg.tagName === 'SVG') {
-          (mermaidSvg as HTMLElement).style.width = '95%';
-          (mermaidSvg as HTMLElement).style.height = '95%';
-          (mermaidSvg as HTMLElement).style.maxWidth = '95vw';
-          (mermaidSvg as HTMLElement).style.maxHeight = '95vh';
-        } else {
-          // 如果是 .mermaid 容器，使用 transform 放大
-          (mermaidSvg as HTMLElement).style.transform = 'scale(2)';
-          (mermaidSvg as HTMLElement).style.transformOrigin = 'center center';
+          (mermaidSvg as HTMLElement).style.maxWidth = '100%';
+          (mermaidSvg as HTMLElement).style.maxHeight = '100%';
+          (mermaidSvg as HTMLElement).style.width = 'auto';
+          (mermaidSvg as HTMLElement).style.height = 'auto';
         }
       }
-      
-      // 通用：对预览内容区域内的所有直接子元素应用放大（如果还没有被处理）
-      Array.from(previewContent.children).forEach((child) => {
-        const childEl = child as HTMLElement;
-        if (childEl && !childEl.hasAttribute('data-fullscreen-processed')) {
-          // 检查是否是 SVG 或已处理的元素
-          if (childEl.tagName !== 'SVG' && !childEl.classList.contains('markdown-content') && !childEl.classList.contains('mermaid')) {
-            childEl.setAttribute('data-original-style', childEl.getAttribute('style') || '');
-            childEl.setAttribute('data-fullscreen-processed', 'true');
-            // 使用 transform scale 放大，同时保持布局
-            const currentTransform = childEl.style.transform || '';
-            childEl.style.transform = currentTransform ? `${currentTransform} scale(2)` : 'scale(2)';
-            childEl.style.transformOrigin = 'center center';
-          }
-        }
-      });
     }
   }
 
@@ -958,20 +843,37 @@
       }
       previewContent.removeAttribute('data-original-style');
       
+      // 恢复 SVG 包装 div 的原始样式
+      const svgWrapper = previewContent.querySelector('div.max-w-full') as HTMLElement;
+      if (svgWrapper && svgWrapper.hasAttribute('data-original-style')) {
+        const originalStyle = svgWrapper.getAttribute('data-original-style');
+        if (originalStyle) {
+          svgWrapper.setAttribute('style', originalStyle);
+        } else {
+          svgWrapper.removeAttribute('style');
+        }
+        svgWrapper.removeAttribute('data-original-style');
+      }
+      
       // 恢复 SVG 元素的原始样式
       const svgElement = previewContent.querySelector('svg');
       if (svgElement && svgElement.hasAttribute('data-original-width')) {
         const originalWidth = svgElement.getAttribute('data-original-width');
         const originalHeight = svgElement.getAttribute('data-original-height');
         const originalStyle = svgElement.getAttribute('data-original-style');
+        const originalViewBox = svgElement.getAttribute('data-original-viewbox');
         if (originalWidth) svgElement.setAttribute('width', originalWidth);
         else svgElement.removeAttribute('width');
         if (originalHeight) svgElement.setAttribute('height', originalHeight);
         else svgElement.removeAttribute('height');
+        if (originalViewBox) {
+          svgElement.setAttribute('viewBox', originalViewBox);
+        }
         if (originalStyle) svgElement.setAttribute('style', originalStyle);
         else svgElement.removeAttribute('style');
         svgElement.removeAttribute('data-original-width');
         svgElement.removeAttribute('data-original-height');
+        svgElement.removeAttribute('data-original-viewbox');
       }
       
       // 恢复 Markdown 内容的原始样式
@@ -984,18 +886,6 @@
           (markdownContent as HTMLElement).removeAttribute('style');
         }
         (markdownContent as HTMLElement).removeAttribute('data-original-style');
-        
-        // 恢复 Markdown 内所有元素的字体大小
-        const markdownElements = (markdownContent as HTMLElement).querySelectorAll('[data-original-font-size]');
-        markdownElements.forEach((el) => {
-          const originalFontSize = (el as HTMLElement).getAttribute('data-original-font-size');
-          if (originalFontSize) {
-            (el as HTMLElement).style.fontSize = originalFontSize;
-          } else {
-            (el as HTMLElement).style.fontSize = '';
-          }
-          (el as HTMLElement).removeAttribute('data-original-font-size');
-        });
       }
       
       // 恢复 Mermaid 内容的原始样式
@@ -1009,21 +899,6 @@
         }
         (mermaidSvg as HTMLElement).removeAttribute('data-original-style');
       }
-      
-      // 恢复所有子元素的 transform
-      Array.from(previewContent.children).forEach((child) => {
-        const childEl = child as HTMLElement;
-        if (childEl && childEl.hasAttribute('data-fullscreen-processed')) {
-          const originalStyle = childEl.getAttribute('data-original-style');
-          if (originalStyle) {
-            childEl.setAttribute('style', originalStyle);
-          } else {
-            childEl.style.transform = '';
-          }
-          childEl.removeAttribute('data-fullscreen-processed');
-          childEl.removeAttribute('data-original-style');
-        }
-      });
     }
   }
 
