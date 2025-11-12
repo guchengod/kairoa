@@ -12,11 +12,11 @@ use pbkdf2::{
     Pbkdf2,
 };
 use scrypt::{
-    password_hash::{PasswordHash as ScryptPasswordHash, PasswordHasher as ScryptPasswordHasher, PasswordVerifier as ScryptPasswordVerifier, SaltString as ScryptSaltString},
+    password_hash::{PasswordHash as ScryptPasswordHash, SaltString as ScryptSaltString},
     Scrypt,
 };
 use argon2::{
-    password_hash::{PasswordHash as Argon2PasswordHash, PasswordHasher as Argon2PasswordHasher, PasswordVerifier as Argon2PasswordVerifier, SaltString as Argon2SaltString},
+    password_hash::{PasswordHash as Argon2PasswordHash, SaltString as Argon2SaltString},
     Argon2, ParamsBuilder,
 };
 

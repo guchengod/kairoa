@@ -3,7 +3,7 @@
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
-  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock } from 'lucide-svelte';
+  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image } from 'lucide-svelte';
 
   const navItems = [
     { path: '/api-client', icon: Globe, key: 'nav.apiClient' },
@@ -29,7 +29,8 @@
       subItems: [
         { label: '密钥生成器', key: 'crypto.keyGenerator', type: 'keygen' },
         { label: '非对称算法', key: 'crypto.asymmetric.title', type: 'asymmetric' },
-        { label: '对称算法', key: 'crypto.symmetric.title', type: 'symmetric' }
+        { label: '对称算法', key: 'crypto.symmetric.title', type: 'symmetric' },
+        { label: '密码哈希', key: 'crypto.hash.title', type: 'hash' }
       ]
     },
     { path: '/json', icon: FileJson, key: 'nav.json' },
@@ -43,6 +44,15 @@
         { label: 'SVG', key: 'previewer.svg', type: 'svg' },
         { label: 'Markdown', key: 'previewer.markdown', type: 'markdown' },
         { label: 'Mermaid', key: 'previewer.mermaid', type: 'mermaid' }
+      ]
+    },
+    { 
+      path: '/image-tools', 
+      icon: Image, 
+      key: 'nav.imageTools',
+      subItems: [
+        { label: '旋转', key: 'imageTools.rotate.title', type: 'rotate' },
+        { label: '缩放', key: 'imageTools.scale.title', type: 'scale' }
       ]
     },
     { path: '/crontab', icon: Calendar, key: 'nav.crontab' },

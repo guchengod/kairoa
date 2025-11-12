@@ -24,7 +24,37 @@ const translations = {
       textDiff: 'Text Diff',
       previewer: 'Previewer',
       apiClient: 'REST API Client',
+      imageTools: 'Image Tools',
       settings: 'Settings'
+    },
+    imageTools: {
+      title: 'Image Tools',
+      selectImage: 'Select Image',
+      dragDropImage: 'Click to select or drag and drop an image',
+      supportedFormats: 'Supports PNG, JPG, GIF, WebP, etc.',
+      invalidImageType: 'Please select a valid image file',
+      noImageSelected: 'Please select an image first',
+      processing: 'Processing...',
+      download: 'Download',
+      original: 'Original',
+      processed: 'Processed',
+      saveSuccess: '✓ Image saved successfully',
+      saveFailed: 'Failed to save image',
+      downloadStarted: '✓ Download started',
+      rotate: {
+        title: 'Rotate',
+        angle: 'Rotation Angle',
+        apply: 'Apply Rotation'
+      },
+      scale: {
+        title: 'Scale',
+        apply: 'Apply Scale',
+        width: 'Width',
+        height: 'Height',
+        maintainAspectRatio: 'Maintain Aspect Ratio',
+        originalSize: 'Original Size',
+        invalidDimensions: 'Invalid dimensions'
+      }
     },
     hash: {
       title: 'Hash Calculator',
@@ -464,7 +494,37 @@ const translations = {
       textDiff: '文本差异对比',
       previewer: '预览器',
       apiClient: 'REST API 客户端',
+      imageTools: '图片处理',
       settings: '设置'
+    },
+    imageTools: {
+      title: '图片处理',
+      selectImage: '选择图片',
+      dragDropImage: '点击选择或拖拽图片到此处',
+      supportedFormats: '支持 PNG、JPG、GIF、WebP 等格式',
+      invalidImageType: '请选择有效的图片文件',
+      noImageSelected: '请先选择图片',
+      processing: '处理中...',
+      download: '下载',
+      original: '原图',
+      processed: '处理后',
+      saveSuccess: '✓ 图片保存成功',
+      saveFailed: '保存图片失败',
+      downloadStarted: '✓ 下载已开始',
+      rotate: {
+        title: '旋转',
+        angle: '旋转角度',
+        apply: '应用旋转'
+      },
+      scale: {
+        title: '缩放',
+        apply: '应用缩放',
+        width: '宽度',
+        height: '高度',
+        maintainAspectRatio: '保持宽高比',
+        originalSize: '原始尺寸',
+        invalidDimensions: '无效的尺寸'
+      }
     },
     hash: {
       title: '哈希计算器',
