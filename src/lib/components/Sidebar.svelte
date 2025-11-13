@@ -30,12 +30,20 @@
         { label: '密钥生成器', key: 'crypto.keyGenerator', type: 'keygen' },
         { label: '非对称算法', key: 'crypto.asymmetric.title', type: 'asymmetric' },
         { label: '对称算法', key: 'crypto.symmetric.title', type: 'symmetric' },
-        { label: '密码哈希', key: 'crypto.hash.title', type: 'hash' }
+        { label: '密码哈希', key: 'crypto.hash.title', type: 'hash' },
+        { label: 'BIP39', key: 'crypto.bip39.title', type: 'bip39' }
       ]
     },
     { path: '/json', icon: FileJson, key: 'nav.json' },
-    { path: '/text-stats', icon: FileText, key: 'nav.textStats' },
-    { path: '/text-diff', icon: GitCompare, key: 'nav.textDiff' },
+    { 
+      path: '/text-processing', 
+      icon: FileText, 
+      key: 'nav.textProcessing',
+      subItems: [
+        { label: '文本统计', key: 'textStats.title', type: 'stats' },
+        { label: '文本差异对比', key: 'textDiff.title', type: 'diff' }
+      ]
+    },
     { 
       path: '/previewer', 
       icon: Eye, 

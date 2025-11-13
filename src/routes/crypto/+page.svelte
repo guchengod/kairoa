@@ -5,6 +5,9 @@
   import CryptoJS from 'crypto-js';
   import { browser } from '$app/environment';
   import { sm2, sm3, sm4 } from 'sm-crypto-v2';
+  import { generateMnemonic, mnemonicToSeedSync, validateMnemonic, entropyToMnemonic, mnemonicToEntropy } from '@scure/bip39';
+  import { wordlist as englishWordlist } from '@scure/bip39/wordlists/english.js';
+  import { wordlist as simplifiedChineseWordlist } from '@scure/bip39/wordlists/simplified-chinese.js';
   
   // 动态导入 Tauri API
   let invokeFn: ((cmd: string, args?: any) => Promise<any>) | null = $state(null);
@@ -24,7 +27,7 @@
     }
   }
   
-  type CryptoType = 'keygen' | 'asymmetric' | 'symmetric' | 'hash';
+  type CryptoType = 'keygen' | 'asymmetric' | 'symmetric' | 'hash' | 'bip39';
   
   let cryptoType = $state<CryptoType>('keygen');
   
@@ -39,6 +42,8 @@
       cryptoType = 'symmetric';
     } else if (typeParam === 'hash') {
       cryptoType = 'hash';
+    } else if (typeParam === 'bip39') {
+      cryptoType = 'bip39';
     }
   });
   
@@ -114,6 +119,57 @@
   let hashOperation = $state<'hash' | 'verify'>('hash');
   let hashToVerify = $state('');
 
+  // BIP39 state
+  type BIP39Strength = 128 | 160 | 192 | 224 | 256; // bits
+  type BIP39Language = 'english' | 'simplified-chinese';
+  let bip39Strength = $state<BIP39Strength>(128); // 12 words by default
+  let bip39Language = $state<BIP39Language>('english');
+  let bip39Wordlist = $state<string[]>(englishWordlist);
+  let bip39Mnemonic = $state('');
+  let bip39Passphrase = $state('');
+  let bip39Seed = $state('');
+  let bip39Entropy = $state('');
+  let bip39Copied = $state<{ mnemonic: boolean; seed: boolean; entropy: boolean }>({
+    mnemonic: false,
+    seed: false,
+    entropy: false
+  });
+  let bip39Error = $state('');
+  let bip39Operation = $state<'generate' | 'validate' | 'toSeed' | 'toEntropy'>('generate');
+  
+  // Track current loaded language to avoid reloading
+  let currentLoadedLanguage = $state<BIP39Language | null>(null);
+  
+  // Load wordlist based on language
+  function loadWordlist(language: BIP39Language) {
+    // Skip if already loaded
+    if (currentLoadedLanguage === language && bip39Wordlist.length > 0) {
+      return;
+    }
+    
+    try {
+      // Use pre-imported wordlists to avoid dynamic import issues
+      if (language === 'simplified-chinese') {
+        bip39Wordlist = simplifiedChineseWordlist;
+      } else {
+        bip39Wordlist = englishWordlist;
+      }
+      
+      currentLoadedLanguage = language;
+      bip39Error = '';
+    } catch (error) {
+      console.error('Failed to load wordlist:', error);
+      bip39Error = `Failed to load ${language} wordlist, using English as fallback`;
+      bip39Wordlist = englishWordlist; // Fallback to English
+      currentLoadedLanguage = 'english';
+    }
+  }
+  
+  // Watch language changes
+  $effect(() => {
+    loadWordlist(bip39Language);
+  });
+
   let translations = $derived($translationsStore);
 
   function t(key: string): string {
@@ -172,6 +228,185 @@
       hashError = '';
       hashOperation = 'hash';
     }
+    // Reset BIP39 state
+    if (type === 'bip39') {
+      bip39Mnemonic = '';
+      bip39Passphrase = '';
+      bip39Seed = '';
+      bip39Entropy = '';
+      bip39Copied = { mnemonic: false, seed: false, entropy: false };
+      bip39Error = '';
+      bip39Operation = 'generate';
+      bip39Strength = 128;
+      bip39Language = 'english';
+    }
+  }
+
+  // BIP39 functions
+  function generateBIP39Mnemonic() {
+    bip39Error = '';
+    bip39Mnemonic = '';
+    bip39Seed = '';
+    bip39Entropy = '';
+    
+    try {
+      // Ensure wordlist is loaded for current language
+      loadWordlist(bip39Language);
+      bip39Mnemonic = generateMnemonic(bip39Wordlist, bip39Strength);
+      bip39Error = '';
+    } catch (error) {
+      bip39Error = `Error: ${error instanceof Error ? error.message : 'Failed to generate mnemonic'}`;
+    }
+  }
+
+  function validateBIP39Mnemonic() {
+    bip39Error = '';
+    
+    if (!bip39Mnemonic.trim()) {
+      bip39Error = t('crypto.bip39.mnemonicRequired');
+      return;
+    }
+    
+    try {
+      // Ensure wordlist is loaded for current language
+      loadWordlist(bip39Language);
+      const isValid = validateMnemonic(bip39Mnemonic.trim(), bip39Wordlist);
+      if (isValid) {
+        bip39Error = '✓ ' + t('crypto.bip39.validMnemonic');
+      } else {
+        bip39Error = '✗ ' + t('crypto.bip39.invalidMnemonic');
+      }
+    } catch (error) {
+      bip39Error = `Error: ${error instanceof Error ? error.message : 'Invalid mnemonic'}`;
+    }
+  }
+
+  function generateBIP39Seed() {
+    bip39Error = '';
+    bip39Seed = '';
+    
+    if (!bip39Mnemonic.trim()) {
+      bip39Error = t('crypto.bip39.mnemonicRequired');
+      return;
+    }
+    
+    try {
+      // Ensure wordlist is loaded for current language
+      loadWordlist(bip39Language);
+      // Validate mnemonic first
+      if (!validateMnemonic(bip39Mnemonic.trim(), bip39Wordlist)) {
+        bip39Error = t('crypto.bip39.invalidMnemonic');
+        return;
+      }
+      
+      // Generate seed with optional passphrase
+      const seed = mnemonicToSeedSync(bip39Mnemonic.trim(), bip39Passphrase);
+      bip39Seed = Array.from(seed).map(b => b.toString(16).padStart(2, '0')).join('');
+      bip39Error = '';
+    } catch (error) {
+      bip39Error = `Error: ${error instanceof Error ? error.message : 'Failed to generate seed'}`;
+    }
+  }
+
+  function mnemonicToEntropyFn() {
+    bip39Error = '';
+    bip39Entropy = '';
+    
+    if (!bip39Mnemonic.trim()) {
+      bip39Error = t('crypto.bip39.mnemonicRequired');
+      return;
+    }
+    
+    try {
+      // Ensure wordlist is loaded for current language
+      loadWordlist(bip39Language);
+      // Validate mnemonic first
+      if (!validateMnemonic(bip39Mnemonic.trim(), bip39Wordlist)) {
+        bip39Error = t('crypto.bip39.invalidMnemonic');
+        return;
+      }
+      
+      const entropy = mnemonicToEntropy(bip39Mnemonic.trim(), bip39Wordlist);
+      bip39Entropy = Array.from(entropy).map(b => b.toString(16).padStart(2, '0')).join('');
+      bip39Error = '';
+    } catch (error) {
+      bip39Error = `Error: ${error instanceof Error ? error.message : 'Failed to convert mnemonic'}`;
+    }
+  }
+
+  function entropyToMnemonicFn() {
+    bip39Error = '';
+    bip39Mnemonic = '';
+    
+    if (!bip39Entropy.trim()) {
+      bip39Error = t('crypto.bip39.entropyRequired');
+      return;
+    }
+    
+    try {
+      // Ensure wordlist is loaded for current language
+      loadWordlist(bip39Language);
+      // Convert hex string to Uint8Array
+      const hex = bip39Entropy.trim().replace(/\s/g, '');
+      if (!/^[0-9a-fA-F]+$/.test(hex)) {
+        bip39Error = t('crypto.bip39.invalidEntropy');
+        return;
+      }
+      
+      if (hex.length % 2 !== 0) {
+        bip39Error = t('crypto.bip39.invalidEntropy');
+        return;
+      }
+      
+      const entropy = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < hex.length; i += 2) {
+        entropy[i / 2] = parseInt(hex.substr(i, 2), 16);
+      }
+      
+      // Validate entropy length (must be 16, 20, 24, 28, or 32 bytes)
+      const validLengths = [16, 20, 24, 28, 32];
+      if (!validLengths.includes(entropy.length)) {
+        bip39Error = t('crypto.bip39.invalidEntropyLength');
+        return;
+      }
+      
+      bip39Mnemonic = entropyToMnemonic(entropy, bip39Wordlist);
+      bip39Error = '';
+    } catch (error) {
+      bip39Error = `Error: ${error instanceof Error ? error.message : 'Failed to convert entropy'}`;
+    }
+  }
+
+  async function copyBIP39ToClipboard(type: 'mnemonic' | 'seed' | 'entropy') {
+    let text = '';
+    if (type === 'mnemonic') {
+      text = bip39Mnemonic;
+    } else if (type === 'seed') {
+      text = bip39Seed;
+    } else if (type === 'entropy') {
+      text = bip39Entropy;
+    }
+    
+    if (!text) return;
+    
+    try {
+      await navigator.clipboard.writeText(text);
+      bip39Copied = { ...bip39Copied, [type]: true };
+      setTimeout(() => {
+        bip39Copied = { ...bip39Copied, [type]: false };
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  }
+
+  function clearBIP39() {
+    bip39Mnemonic = '';
+    bip39Passphrase = '';
+    bip39Seed = '';
+    bip39Entropy = '';
+    bip39Copied = { mnemonic: false, seed: false, entropy: false };
+    bip39Error = '';
   }
 
   // Generate random salt
@@ -2046,6 +2281,17 @@
               <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
             {/if}
           </button>
+          <button
+            onclick={() => switchCryptoType('bip39')}
+            class="px-4 py-2 relative transition-colors font-medium {cryptoType === 'bip39'
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          >
+            {t('crypto.bip39.title')}
+            {#if cryptoType === 'bip39'}
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
+            {/if}
+          </button>
         </div>
       </div>
 
@@ -3184,6 +3430,308 @@
               </div>
             </div>
           {/if}
+        </div>
+      {:else if cryptoType === 'bip39'}
+        <!-- BIP39 Mnemonic -->
+        <div class="flex-1 flex flex-col space-y-4 min-h-0 overflow-y-auto">
+          <!-- Operation selection -->
+          <div class="flex-shrink-0 space-y-4">
+            <div>
+              <label for="bip39-operation" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                {t('crypto.bip39.operation')}
+              </label>
+              <select
+                id="bip39-operation"
+                bind:value={bip39Operation}
+                class="input w-full"
+              >
+                <option value="generate">{t('crypto.bip39.generate')}</option>
+                <option value="validate">{t('crypto.bip39.validate')}</option>
+                <option value="toSeed">{t('crypto.bip39.toSeed')}</option>
+                <option value="toEntropy">{t('crypto.bip39.toEntropy')}</option>
+              </select>
+            </div>
+
+            {#if bip39Operation === 'generate'}
+              <!-- Generate mnemonic -->
+              <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label for="bip39-language" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      {t('crypto.bip39.language')}
+                    </label>
+                    <select
+                      id="bip39-language"
+                      bind:value={bip39Language}
+                      class="input w-full"
+                    >
+                      <option value="english">{t('crypto.bip39.languages.english')}</option>
+                      <option value="simplified-chinese">{t('crypto.bip39.languages.simplifiedChinese')}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="bip39-strength" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      {t('crypto.bip39.strength')}
+                    </label>
+                    <select
+                      id="bip39-strength"
+                      bind:value={bip39Strength}
+                      class="input w-full"
+                    >
+                      <option value={128}>128 bits (12 words)</option>
+                      <option value={160}>160 bits (15 words)</option>
+                      <option value={192}>192 bits (18 words)</option>
+                      <option value={224}>224 bits (21 words)</option>
+                      <option value={256}>256 bits (24 words)</option>
+                    </select>
+                  </div>
+                </div>
+                <button
+                  onclick={generateBIP39Mnemonic}
+                  class="btn-primary w-full"
+                >
+                  {t('crypto.bip39.generateMnemonic')}
+                </button>
+              </div>
+            {:else if bip39Operation === 'validate'}
+              <!-- Validate mnemonic -->
+              <div class="space-y-4">
+                <div>
+                  <label for="bip39-language-validate" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                    {t('crypto.bip39.language')}
+                  </label>
+                  <select
+                    id="bip39-language-validate"
+                    bind:value={bip39Language}
+                    class="input w-full"
+                  >
+                    <option value="english">{t('crypto.bip39.languages.english')}</option>
+                    <option value="simplified-chinese">{t('crypto.bip39.languages.simplifiedChinese')}</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="bip39-mnemonic-validate" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                    {t('crypto.bip39.mnemonic')}
+                  </label>
+                  <textarea
+                    id="bip39-mnemonic-validate"
+                    bind:value={bip39Mnemonic}
+                    placeholder={t('crypto.bip39.mnemonicPlaceholder')}
+                    class="textarea font-mono text-sm min-h-[100px]"
+                  ></textarea>
+                </div>
+                <button
+                  onclick={validateBIP39Mnemonic}
+                  class="btn-primary w-full"
+                >
+                  {t('crypto.bip39.validateMnemonic')}
+                </button>
+              </div>
+            {:else if bip39Operation === 'toSeed'}
+              <!-- Mnemonic to Seed -->
+              <div class="space-y-4">
+                <div>
+                  <label for="bip39-language-seed" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                    {t('crypto.bip39.language')}
+                  </label>
+                  <select
+                    id="bip39-language-seed"
+                    bind:value={bip39Language}
+                    class="input w-full"
+                  >
+                    <option value="english">{t('crypto.bip39.languages.english')}</option>
+                    <option value="simplified-chinese">{t('crypto.bip39.languages.simplifiedChinese')}</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="bip39-mnemonic-seed" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                    {t('crypto.bip39.mnemonic')}
+                  </label>
+                  <textarea
+                    id="bip39-mnemonic-seed"
+                    bind:value={bip39Mnemonic}
+                    placeholder={t('crypto.bip39.mnemonicPlaceholder')}
+                    class="textarea font-mono text-sm min-h-[100px]"
+                  ></textarea>
+                </div>
+                <div>
+                  <label for="bip39-passphrase" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                    {t('crypto.bip39.passphrase')} <span class="text-gray-500 dark:text-gray-400 text-xs">({t('crypto.bip39.optional')})</span>
+                  </label>
+                  <input
+                    type="password"
+                    id="bip39-passphrase"
+                    bind:value={bip39Passphrase}
+                    placeholder={t('crypto.bip39.passphrasePlaceholder')}
+                    class="input w-full"
+                  />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {t('crypto.bip39.passphraseHint')}
+                  </p>
+                </div>
+                <button
+                  onclick={generateBIP39Seed}
+                  class="btn-primary w-full"
+                >
+                  {t('crypto.bip39.generateSeed')}
+                </button>
+              </div>
+            {:else if bip39Operation === 'toEntropy'}
+              <!-- Mnemonic/Entropy conversion -->
+              <div class="space-y-4">
+                <div>
+                  <label for="bip39-language-entropy" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                    {t('crypto.bip39.language')}
+                  </label>
+                  <select
+                    id="bip39-language-entropy"
+                    bind:value={bip39Language}
+                    class="input w-full"
+                  >
+                    <option value="english">{t('crypto.bip39.languages.english')}</option>
+                    <option value="simplified-chinese">{t('crypto.bip39.languages.simplifiedChinese')}</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="bip39-mnemonic-entropy" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                    {t('crypto.bip39.mnemonic')}
+                  </label>
+                  <textarea
+                    id="bip39-mnemonic-entropy"
+                    bind:value={bip39Mnemonic}
+                    placeholder={t('crypto.bip39.mnemonicPlaceholder')}
+                    class="textarea font-mono text-sm min-h-[100px]"
+                  ></textarea>
+                </div>
+                <div class="flex gap-2">
+                  <button
+                    onclick={mnemonicToEntropyFn}
+                    class="btn-primary flex-1"
+                  >
+                    {t('crypto.bip39.mnemonicToEntropy')}
+                  </button>
+                  <button
+                    onclick={entropyToMnemonicFn}
+                    class="btn-primary flex-1"
+                  >
+                    {t('crypto.bip39.entropyToMnemonic')}
+                  </button>
+                </div>
+                <div>
+                  <label for="bip39-entropy" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                    {t('crypto.bip39.entropy')}
+                  </label>
+                  <textarea
+                    id="bip39-entropy"
+                    bind:value={bip39Entropy}
+                    placeholder={t('crypto.bip39.entropyPlaceholder')}
+                    class="textarea font-mono text-sm min-h-[100px]"
+                  ></textarea>
+                </div>
+              </div>
+            {/if}
+
+            {#if bip39Error}
+              <div class="p-4 {bip39Error.startsWith('✓') ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'} rounded-lg">
+                <p class="text-sm {bip39Error.startsWith('✓') ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}">
+                  {bip39Error}
+                </p>
+              </div>
+            {/if}
+
+            <!-- Results -->
+            {#if bip39Mnemonic || bip39Seed || bip39Entropy}
+              <div class="space-y-4">
+                {#if bip39Mnemonic}
+                  <div>
+                    <div class="flex items-center justify-between mb-2">
+                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('crypto.bip39.mnemonic')}
+                      </label>
+                      <button
+                        onclick={() => copyBIP39ToClipboard('mnemonic')}
+                        class="btn-secondary text-sm transition-all duration-200 {bip39Copied.mnemonic ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
+                      >
+                        {#if bip39Copied.mnemonic}
+                          <Check class="w-4 h-4 inline mr-1" />
+                          {t('common.copied')}
+                        {:else}
+                          <Copy class="w-4 h-4 inline mr-1" />
+                          {t('common.copy')}
+                        {/if}
+                      </button>
+                    </div>
+                    <textarea
+                      readonly
+                      value={bip39Mnemonic}
+                      class="textarea font-mono text-sm min-h-[100px] {bip39Copied.mnemonic ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} transition-colors duration-300"
+                    ></textarea>
+                  </div>
+                {/if}
+
+                {#if bip39Seed}
+                  <div>
+                    <div class="flex items-center justify-between mb-2">
+                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('crypto.bip39.seed')}
+                      </label>
+                      <button
+                        onclick={() => copyBIP39ToClipboard('seed')}
+                        class="btn-secondary text-sm transition-all duration-200 {bip39Copied.seed ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
+                      >
+                        {#if bip39Copied.seed}
+                          <Check class="w-4 h-4 inline mr-1" />
+                          {t('common.copied')}
+                        {:else}
+                          <Copy class="w-4 h-4 inline mr-1" />
+                          {t('common.copy')}
+                        {/if}
+                      </button>
+                    </div>
+                    <textarea
+                      readonly
+                      value={bip39Seed}
+                      class="textarea font-mono text-sm min-h-[100px] {bip39Copied.seed ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} transition-colors duration-300"
+                    ></textarea>
+                  </div>
+                {/if}
+
+                {#if bip39Entropy}
+                  <div>
+                    <div class="flex items-center justify-between mb-2">
+                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('crypto.bip39.entropy')}
+                      </label>
+                      <button
+                        onclick={() => copyBIP39ToClipboard('entropy')}
+                        class="btn-secondary text-sm transition-all duration-200 {bip39Copied.entropy ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
+                      >
+                        {#if bip39Copied.entropy}
+                          <Check class="w-4 h-4 inline mr-1" />
+                          {t('common.copied')}
+                        {:else}
+                          <Copy class="w-4 h-4 inline mr-1" />
+                          {t('common.copy')}
+                        {/if}
+                      </button>
+                    </div>
+                    <textarea
+                      readonly
+                      value={bip39Entropy}
+                      class="textarea font-mono text-sm min-h-[100px] {bip39Copied.entropy ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} transition-colors duration-300"
+                    ></textarea>
+                  </div>
+                {/if}
+
+                <button
+                  onclick={clearBIP39}
+                  class="btn-secondary w-full"
+                >
+                  {t('common.clear')}
+                </button>
+              </div>
+            {/if}
+          </div>
         </div>
       {/if}
     </div>
