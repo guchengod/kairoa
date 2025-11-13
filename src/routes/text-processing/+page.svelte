@@ -3,14 +3,14 @@
   import { Copy, Check, Trash2, FileText } from 'lucide-svelte';
   import { page } from '$app/stores';
   
-  type ToolType = 'stats' | 'diff';
+  type ToolType = 'stats' | 'diff' | 'case';
   
   let toolType = $state<ToolType>('stats');
   
   // Check URL parameter for type
   $effect(() => {
     const typeParam = $page.url.searchParams.get('type');
-    if (typeParam === 'stats' || typeParam === 'diff') {
+    if (typeParam === 'stats' || typeParam === 'diff' || typeParam === 'case') {
       toolType = typeParam as ToolType;
     }
   });
@@ -271,6 +271,152 @@
     text2 = '';
     copied = { old: false, new: false };
   }
+
+  // Case Converter related code
+  type CaseType = 'uppercase' | 'lowercase' | 'titleCase' | 'sentenceCase' | 'camelCase' | 'pascalCase' | 'snakeCase' | 'kebabCase' | 'constantCase' | 'dotCase' | 'pathCase' | 'trainCase' | 'cobolCase' | 'flatCase' | 'alternatingCase' | 'randomCase';
+  
+  let caseInput = $state('');
+  let caseType = $state<CaseType>('uppercase');
+  let caseOutput = $state('');
+  let caseCopied = $state(false);
+
+  function convertCase(text: string, type: CaseType): string {
+    if (!text) return '';
+    
+    switch (type) {
+      case 'uppercase':
+        return text.toUpperCase();
+      
+      case 'lowercase':
+        return text.toLowerCase();
+      
+      case 'titleCase':
+        return text
+          .toLowerCase()
+          .split(/\s+/)
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+      
+      case 'sentenceCase':
+        return text
+          .toLowerCase()
+          .split(/([.!?]\s+|^)/)
+          .map((sentence, index) => {
+            if (index === 0 || /[.!?]\s+/.test(sentence)) {
+              return sentence.charAt(0).toUpperCase() + sentence.slice(1);
+            }
+            return sentence;
+          })
+          .join('');
+      
+      case 'camelCase':
+        return text
+          .toLowerCase()
+          .replace(/[^a-z0-9]+(.)/g, (_, char) => char.toUpperCase())
+          .replace(/^[A-Z]/, char => char.toLowerCase());
+      
+      case 'pascalCase':
+        return text
+          .toLowerCase()
+          .replace(/[^a-z0-9]+(.)/g, (_, char) => char.toUpperCase())
+          .replace(/^[a-z]/, char => char.toUpperCase());
+      
+      case 'snakeCase':
+        return text
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '_')
+          .replace(/^_+|_+$/g, '');
+      
+      case 'kebabCase':
+        return text
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      
+      case 'constantCase':
+        return text
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, '_')
+          .replace(/^_+|_+$/g, '');
+      
+      case 'dotCase':
+        return text
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '.')
+          .replace(/^\.+|\.+$/g, '');
+      
+      case 'pathCase':
+        return text
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '/')
+          .replace(/^\/+|\/+$/g, '');
+      
+      case 'trainCase':
+        return text
+          .toLowerCase()
+          .split(/\s+/)
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join('-')
+          .replace(/[^A-Za-z0-9-]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      
+      case 'cobolCase':
+        return text
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      
+      case 'flatCase':
+        return text
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '');
+      
+      case 'alternatingCase':
+        return text
+          .split('')
+          .map((char, index) => {
+            if (!/[a-zA-Z]/.test(char)) return char;
+            return index % 2 === 0 ? char.toLowerCase() : char.toUpperCase();
+          })
+          .join('');
+      
+      case 'randomCase':
+        return text
+          .split('')
+          .map(char => {
+            if (!/[a-zA-Z]/.test(char)) return char;
+            return Math.random() < 0.5 ? char.toLowerCase() : char.toUpperCase();
+          })
+          .join('');
+      
+      default:
+        return text;
+    }
+  }
+
+  $effect(() => {
+    caseOutput = convertCase(caseInput, caseType);
+  });
+
+  async function copyCaseToClipboard() {
+    if (!caseOutput) return;
+    
+    try {
+      await navigator.clipboard.writeText(caseOutput);
+      caseCopied = true;
+      setTimeout(() => {
+        caseCopied = false;
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  }
+
+  function clearCase() {
+    caseInput = '';
+    caseOutput = '';
+    caseCopied = false;
+  }
 </script>
 
 <div class="flex flex-col h-full w-full ml-0 mr-0 p-2">
@@ -296,6 +442,17 @@
       >
         {t('textDiff.title')}
         {#if toolType === 'diff'}
+          <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:bg-primary-400"></span>
+        {/if}
+      </button>
+      <button
+        onclick={() => switchToolType('case')}
+        class="px-4 py-2 relative transition-colors font-medium {toolType === 'case'
+          ? 'text-primary-600 dark:text-primary-400'
+          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+      >
+        {t('textCase.title')}
+        {#if toolType === 'case'}
           <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:bg-primary-400"></span>
         {/if}
       </button>
@@ -568,6 +725,199 @@
           </div>
         </div>
       {/if}
+    </div>
+  {/if}
+
+  <!-- Case Converter -->
+  {#if toolType === 'case'}
+    <div class="flex-1 flex flex-col space-y-6 min-h-0">
+      <!-- 输入区域卡片 -->
+      <div class="card flex-shrink-0">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('textCase.input')}
+            </label>
+            <textarea
+              bind:value={caseInput}
+              placeholder={t('textCase.inputPlaceholder')}
+              class="input font-mono text-sm min-h-32 resize-none"
+              rows="5"
+            ></textarea>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('textCase.output')}
+            </label>
+            <div class="relative">
+              <textarea
+                value={caseOutput}
+                placeholder={t('textCase.outputPlaceholder')}
+                readonly
+                class="input font-mono text-sm min-h-32 resize-none pr-10"
+                rows="5"
+              ></textarea>
+              <button
+                onclick={copyCaseToClipboard}
+                class="absolute top-2 right-2 btn-secondary text-sm transition-all duration-200 {caseCopied ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
+                disabled={!caseOutput}
+              >
+                {#if caseCopied}
+                  <Check class="w-4 h-4 inline mr-1" />
+                  {t('textCase.copied')}
+                {:else}
+                  <Copy class="w-4 h-4 inline mr-1" />
+                  {t('textCase.copy')}
+                {/if}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('textCase.caseType')}
+            </label>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+              <button
+                onclick={() => caseType = 'uppercase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'uppercase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.uppercase')}
+              </button>
+              <button
+                onclick={() => caseType = 'lowercase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'lowercase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.lowercase')}
+              </button>
+              <button
+                onclick={() => caseType = 'titleCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'titleCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.titleCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'sentenceCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'sentenceCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.sentenceCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'camelCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'camelCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.camelCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'pascalCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'pascalCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.pascalCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'snakeCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'snakeCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.snakeCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'kebabCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'kebabCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.kebabCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'constantCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'constantCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.constantCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'dotCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'dotCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.dotCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'pathCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'pathCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.pathCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'trainCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'trainCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.trainCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'cobolCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'cobolCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.cobolCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'flatCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'flatCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.flatCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'alternatingCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'alternatingCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.alternatingCase')}
+              </button>
+              <button
+                onclick={() => caseType = 'randomCase'}
+                class="px-3 py-2 text-sm rounded-lg border transition-colors {caseType === 'randomCase'
+                  ? 'bg-primary-600 dark:bg-primary-500 text-white border-primary-600 dark:border-primary-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+              >
+                {t('textCase.randomCase')}
+              </button>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <button onclick={clearCase} class="btn-secondary">
+              <Trash2 class="w-4 h-4 inline mr-1" />
+              {t('textCase.clear')}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   {/if}
 </div>

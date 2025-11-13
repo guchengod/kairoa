@@ -41,7 +41,8 @@
       key: 'nav.textProcessing',
       subItems: [
         { label: '文本统计', key: 'textStats.title', type: 'stats' },
-        { label: '文本差异对比', key: 'textDiff.title', type: 'diff' }
+        { label: '文本差异对比', key: 'textDiff.title', type: 'diff' },
+        { label: '大小写转换', key: 'textCase.title', type: 'case' }
       ]
     },
     { 
