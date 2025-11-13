@@ -121,7 +121,7 @@
   <!-- 标题区域 -->
   <div class="px-6 py-3 border-b border-gray-200 dark:border-gray-700 {isCollapsed ? 'px-0 py-2' : ''} relative">
     {#if !isCollapsed}
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 cursor-pointer" onclick={() => goto('/')}>
         <img src="/icon.png" alt={t('app.title')} class="w-12 h-12 object-contain flex-shrink-0" title={t('app.title')} />
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 {currentLocale === 'zh' ? 'app-title-zh' : ''}">
           {t('app.title')}
@@ -133,6 +133,7 @@
           src="/icon.png" 
           alt={t('app.title')} 
           class="w-12 h-12 object-contain flex-shrink-0 cursor-pointer" 
+          onclick={() => goto('/')}
           onmouseenter={() => logoHovered = true}
           onmouseleave={() => logoHovered = false}
         />

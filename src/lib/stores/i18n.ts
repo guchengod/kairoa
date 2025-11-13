@@ -9,6 +9,25 @@ const translations = {
       title: 'Kairoa',
       subtitle: 'Desktop Utility Tools'
     },
+    home: {
+      searchPlaceholder: 'Search tools...',
+      resultsFound: 'results found',
+      noResults: 'No results found',
+      noResultsDesc: 'Try adjusting your search terms',
+      apiClientDesc: 'Test and debug REST APIs with a powerful client',
+      hashDesc: 'Calculate MD5, SHA-1, SHA-256, SHA-512 hashes',
+      timeDesc: 'Convert between timestamps and dates',
+      uuidDesc: 'Generate UUIDs and ULIDs',
+      jsonDesc: 'Format, validate, and beautify JSON',
+      crontabDesc: 'Calculate and validate cron expressions',
+      encodeDecodeDesc: 'Encode/decode Base64, URL, ASCII, and JWT',
+      cryptoDesc: 'Key generation, encryption, hashing, and BIP39',
+      textProcessingDesc: 'Text statistics, diff, and case conversion',
+      previewerDesc: 'Preview SVG, Markdown, and Mermaid diagrams',
+      imageToolsDesc: 'Rotate and scale images',
+      colorDesc: 'Convert between color formats (HEX, RGB, HSL)',
+      baseConverterDesc: 'Convert between number bases (binary, octal, decimal, hex)'
+    },
     nav: {
       hash: 'Hash Calculator',
       time: 'Time Converter',
@@ -552,6 +571,25 @@ const translations = {
     app: {
       title: '清漪',
       subtitle: '桌面工具集'
+    },
+    home: {
+      searchPlaceholder: '搜索工具...',
+      resultsFound: '个结果',
+      noResults: '未找到结果',
+      noResultsDesc: '请尝试调整搜索关键词',
+      apiClientDesc: '强大的 REST API 测试和调试客户端',
+      hashDesc: '计算 MD5、SHA-1、SHA-256、SHA-512 哈希值',
+      timeDesc: '时间戳和日期之间的转换',
+      uuidDesc: '生成 UUID 和 ULID',
+      jsonDesc: '格式化、验证和美化 JSON',
+      crontabDesc: '计算和验证 cron 表达式',
+      encodeDecodeDesc: 'Base64、URL、ASCII 和 JWT 编解码',
+      cryptoDesc: '密钥生成、加密、哈希和 BIP39',
+      textProcessingDesc: '文本统计、差异对比和大小写转换',
+      previewerDesc: '预览 SVG、Markdown 和 Mermaid 图表',
+      imageToolsDesc: '旋转和缩放图片',
+      colorDesc: '颜色格式转换（HEX、RGB、HSL）',
+      baseConverterDesc: '数字进制转换（二进制、八进制、十进制、十六进制）'
     },
     nav: {
       hash: 'Hash 计算器',
