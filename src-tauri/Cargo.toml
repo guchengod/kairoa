@@ -42,4 +42,7 @@ pbkdf2 = { version = "0.12", features = ["simple"] }
 scrypt = { version = "0.11", features = ["simple"] }
 bcrypt = "0.15"
 argon2 = "0.5"
+# Image processing
+image = "0.25"
+webp = "0.2"
 

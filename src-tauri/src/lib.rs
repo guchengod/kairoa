@@ -19,6 +19,10 @@ use argon2::{
     password_hash::{PasswordHash as Argon2PasswordHash, SaltString as Argon2SaltString},
     Argon2, ParamsBuilder,
 };
+use image::{DynamicImage, ImageEncoder, ExtendedColorType};
+use image::codecs::jpeg::JpegEncoder;
+use image::codecs::png::PngEncoder;
+use std::io::Cursor;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HttpRequest {
@@ -498,6 +502,168 @@ fn verify_argon2(request: PasswordVerifyRequest) -> Result<PasswordVerifyRespons
     Ok(PasswordVerifyResponse { valid })
 }
 
+// Image compression structures
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ImageCompressRequest {
+    image_data: Vec<u8>, // Base64 encoded or raw bytes
+    quality: f32, // 0.0 to 1.0
+    format: Option<String>, // "jpeg", "png", "webp", or None for auto
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ImageCompressResponse {
+    compressed_data: Vec<u8>,
+    format: String,
+    original_size: usize,
+    compressed_size: usize,
+}
+
+// Image compression command
+#[tauri::command]
+fn compress_image(request: ImageCompressRequest) -> Result<ImageCompressResponse, String> {
+    let original_size = request.image_data.len();
+    
+    // Decode the image
+    let img = image::load_from_memory(&request.image_data)
+        .map_err(|e| format!("Failed to decode image: {}", e))?;
+    
+    // Check if WebP format is requested
+    if let Some(ref fmt) = request.format {
+        if fmt == "webp" {
+            return compress_webp(&img, request.quality, original_size, &request.image_data);
+        }
+    }
+    
+    // Determine output format and encode
+    let mut buffer = Vec::new();
+    let format_name = if let Some(ref fmt) = request.format {
+        match fmt.as_str() {
+            "jpeg" | "jpg" => {
+                let quality = (request.quality * 100.0).round() as u8;
+                let rgb_img = img.to_rgb8();
+                let mut cursor = Cursor::new(&mut buffer);
+                let encoder = JpegEncoder::new_with_quality(&mut cursor, quality.max(1).min(100));
+                encoder
+                    .write_image(rgb_img.as_raw(), rgb_img.width(), rgb_img.height(), ExtendedColorType::Rgb8)
+                    .map_err(|e| format!("Failed to encode JPEG: {}", e))?;
+                "jpeg"
+            },
+            "png" => {
+                let rgba_img = img.to_rgba8();
+                let mut cursor = Cursor::new(&mut buffer);
+                let encoder = PngEncoder::new(&mut cursor);
+                encoder
+                    .write_image(rgba_img.as_raw(), rgba_img.width(), rgba_img.height(), ExtendedColorType::Rgba8)
+                    .map_err(|e| format!("Failed to encode PNG: {}", e))?;
+                "png"
+            },
+            _ => {
+                let quality = (request.quality * 100.0).round() as u8;
+                let rgb_img = img.to_rgb8();
+                let mut cursor = Cursor::new(&mut buffer);
+                let encoder = JpegEncoder::new_with_quality(&mut cursor, quality.max(1).min(100));
+                encoder
+                    .write_image(rgb_img.as_raw(), rgb_img.width(), rgb_img.height(), ExtendedColorType::Rgb8)
+                    .map_err(|e| format!("Failed to encode JPEG: {}", e))?;
+                "jpeg"
+            },
+        }
+    } else {
+        // Auto-select format: try JPEG first (usually better compression)
+        let quality = (request.quality * 100.0).round() as u8;
+        let rgb_img = img.to_rgb8();
+        let mut cursor = Cursor::new(&mut buffer);
+        let mut encoder = JpegEncoder::new_with_quality(&mut cursor, quality.max(1).min(100));
+        encoder
+            .write_image(rgb_img.as_raw(), rgb_img.width(), rgb_img.height(), ExtendedColorType::Rgb8)
+            .map_err(|e| format!("Failed to encode JPEG: {}", e))?;
+        "jpeg"
+    };
+    
+    // If compressed is larger, try lower quality or different format
+    if buffer.len() >= original_size {
+        // Try lower quality JPEG
+        let lower_quality = (request.quality * 0.7).max(0.3);
+        let quality_u8 = (lower_quality * 100.0).round() as u8;
+        let mut lower_buffer = Vec::new();
+        {
+            let rgb_img = img.to_rgb8();
+            let mut cursor = Cursor::new(&mut lower_buffer);
+            let encoder = JpegEncoder::new_with_quality(&mut cursor, quality_u8.max(1).min(100));
+            encoder
+                .write_image(rgb_img.as_raw(), rgb_img.width(), rgb_img.height(), ExtendedColorType::Rgb8)
+                .map_err(|e| format!("Failed to encode JPEG: {}", e))?;
+        }
+        
+        // Use the smaller result
+        if lower_buffer.len() < buffer.len() && lower_buffer.len() < original_size {
+            buffer = lower_buffer;
+        } else if buffer.len() < original_size {
+            // Keep the original compression result
+        } else {
+            // Both are larger, return original (no compression)
+            return Ok(ImageCompressResponse {
+                compressed_data: request.image_data,
+                format: "original".to_string(),
+                original_size,
+                compressed_size: original_size,
+            });
+        }
+    }
+    
+    let compressed_size = buffer.len();
+    Ok(ImageCompressResponse {
+        compressed_data: buffer,
+        format: format_name.to_string(),
+        original_size,
+        compressed_size,
+    })
+}
+
+// Helper function for WebP compression
+fn compress_webp(img: &DynamicImage, quality: f32, original_size: usize, original_data: &[u8]) -> Result<ImageCompressResponse, String> {
+    // Convert to RGB image
+    let rgb_img = img.to_rgb8();
+    
+    // Encode as WebP
+    // webp crate uses quality from 0.0 to 100.0
+    let webp_quality = (quality * 100.0).round();
+    let encoder = webp::Encoder::from_rgb(&rgb_img, rgb_img.width(), rgb_img.height());
+    let webp_data = encoder.encode(webp_quality);
+    
+    // If WebP is larger, try lower quality
+    if webp_data.len() >= original_size {
+        let lower_quality = (quality * 0.7).max(0.3);
+        let lower_webp_quality = (lower_quality * 100.0).round();
+        let lower_webp_data = encoder.encode(lower_webp_quality);
+        
+        // If lower quality is smaller, use it; otherwise return original
+        if lower_webp_data.len() < original_size && lower_webp_data.len() < webp_data.len() {
+            return Ok(ImageCompressResponse {
+                compressed_data: lower_webp_data.to_vec(),
+                format: "webp".to_string(),
+                original_size,
+                compressed_size: lower_webp_data.len(),
+            });
+        } else {
+            // Return original (no compression)
+            return Ok(ImageCompressResponse {
+                compressed_data: original_data.to_vec(),
+                format: "original".to_string(),
+                original_size,
+                compressed_size: original_size,
+            });
+        }
+    }
+    
+    Ok(ImageCompressResponse {
+        compressed_data: webp_data.to_vec(),
+        format: "webp".to_string(),
+        original_size,
+        compressed_size: webp_data.len(),
+    })
+}
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -525,7 +691,8 @@ pub fn run() {
             hash_bcrypt,
             verify_bcrypt,
             hash_argon2,
-            verify_argon2
+            verify_argon2,
+            compress_image
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

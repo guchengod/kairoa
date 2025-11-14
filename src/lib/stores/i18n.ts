@@ -76,6 +76,8 @@ const translations = {
         height: 'Height',
         maintainAspectRatio: 'Maintain Aspect Ratio',
         originalSize: 'Original Size',
+        originalFileSize: 'Original File Size',
+        scaledFileSize: 'Scaled File Size',
         invalidDimensions: 'Invalid dimensions'
       },
       convert: {
@@ -84,6 +86,19 @@ const translations = {
         targetFormat: 'Target Format',
         convert: 'Convert',
         previewPlaceholder: 'Converted image will appear here'
+      },
+      compress: {
+        title: 'Compress',
+        compressed: 'Compressed',
+        quality: 'Compression Quality',
+        compress: 'Compress',
+        previewPlaceholder: 'Compressed image will appear here',
+        originalSize: 'Original Size',
+        compressedSize: 'Compressed Size',
+        compressionRatio: 'Compression Ratio',
+        lowQuality: 'Low Quality (Smaller Size)',
+        highQuality: 'High Quality (Larger Size)',
+        webpNoCompression: 'WebP file is already optimized. No compression applied.'
       }
     },
     hash: {
@@ -678,6 +693,8 @@ const translations = {
         height: '高度',
         maintainAspectRatio: '保持宽高比',
         originalSize: '原始尺寸',
+        originalFileSize: '原始文件大小',
+        scaledFileSize: '缩放后文件大小',
         invalidDimensions: '无效的尺寸'
       },
       convert: {
@@ -686,6 +703,19 @@ const translations = {
         targetFormat: '目标格式',
         convert: '转换',
         previewPlaceholder: '转换后的图片将显示在这里'
+      },
+      compress: {
+        title: '压缩',
+        compressed: '压缩后',
+        quality: '压缩质量',
+        compress: '压缩',
+        previewPlaceholder: '压缩后的图片将显示在这里',
+        originalSize: '原始大小',
+        compressedSize: '压缩后大小',
+        compressionRatio: '压缩率',
+        lowQuality: '低质量（文件更小）',
+        highQuality: '高质量（文件更大）',
+        webpNoCompression: 'WebP 文件已经过优化，未进行压缩。'
       }
     },
     hash: {

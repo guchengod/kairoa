@@ -3,15 +3,16 @@
   import { RotateCw, Download, Upload } from 'lucide-svelte';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
+  import imageCompression from 'browser-image-compression';
   
-  type ToolType = 'rotate' | 'scale' | 'convert';
+  type ToolType = 'rotate' | 'scale' | 'convert' | 'compress';
   
   let toolType = $state<ToolType>('rotate');
   
   // Check URL parameter for type
   $effect(() => {
     const typeParam = $page.url.searchParams.get('type');
-    if (typeParam === 'rotate' || typeParam === 'scale' || typeParam === 'convert') {
+    if (typeParam === 'rotate' || typeParam === 'scale' || typeParam === 'convert' || typeParam === 'compress') {
       toolType = typeParam as ToolType;
     }
   });
@@ -32,6 +33,7 @@
   let scaleHeight = $state<number>(0);
   let scalePercentage = $state<number>(100); // 缩放百分比
   let maintainAspectRatio = $state<boolean>(true); // 保持宽高比
+  let scaledSize = $state<number>(0); // bytes - 缩放后的文件大小
   
   // Convert related state
   type ImageFormat = 'png' | 'jpg' | 'webp' | 'gif';
@@ -39,9 +41,17 @@
   let convertedImageUrl = $state<string>('');
   let convertedImageBlob = $state<Blob | null>(null);
   
+  // Compress related state
+  let compressionQuality = $state<number>(0.8); // 0-1, default 0.8 (80%)
+  let compressedImageUrl = $state<string>('');
+  let compressedImageBlob = $state<Blob | null>(null);
+  let originalSize = $state<number>(0); // bytes
+  let compressedSize = $state<number>(0); // bytes
+  
   // Tauri API
   let saveFn: ((options: any) => Promise<string | null>) | null = $state(null);
   let writeFileFn: ((path: string, contents: Uint8Array) => Promise<void>) | null = $state(null);
+  let invokeFn: ((cmd: string, args?: any) => Promise<any>) | null = $state(null);
   let isTauriAvailable = $state(false);
   
   if (browser) {
@@ -49,10 +59,12 @@
       isTauriAvailable = true;
       Promise.all([
         import('@tauri-apps/plugin-dialog'),
-        import('@tauri-apps/plugin-fs')
-      ]).then(([dialogModule, fsModule]) => {
+        import('@tauri-apps/plugin-fs'),
+        import('@tauri-apps/api/core')
+      ]).then(([dialogModule, fsModule, coreModule]) => {
         saveFn = dialogModule.save;
         writeFileFn = fsModule.writeFile;
+        invokeFn = coreModule.invoke;
       }).catch((err) => {
         console.error('Failed to load Tauri APIs:', err);
         isTauriAvailable = false;
@@ -90,6 +102,7 @@
       
       imageFile = file;
       error = '';
+      originalSize = file.size; // Record original file size
       
       // Create preview URL
       if (imageUrl) {
@@ -101,6 +114,12 @@
       if (processedImageUrl) {
         URL.revokeObjectURL(processedImageUrl);
         processedImageUrl = '';
+      }
+      if (compressedImageUrl) {
+        URL.revokeObjectURL(compressedImageUrl);
+        compressedImageUrl = '';
+        compressedImageBlob = null;
+        compressedSize = 0;
       }
       
       // Reset rotation
@@ -204,6 +223,7 @@
       
       imageFile = file;
       error = '';
+      originalSize = file.size; // Record original file size
       
       if (imageUrl) {
         URL.revokeObjectURL(imageUrl);
@@ -213,6 +233,12 @@
       if (processedImageUrl) {
         URL.revokeObjectURL(processedImageUrl);
         processedImageUrl = '';
+      }
+      if (compressedImageUrl) {
+        URL.revokeObjectURL(compressedImageUrl);
+        compressedImageUrl = '';
+        compressedImageBlob = null;
+        compressedSize = 0;
       }
       
       // Reset rotation
@@ -458,6 +484,249 @@
       }, 3000);
     }
   }
+
+  async function compressImage() {
+    if (!imageFile || !imageUrl) {
+      error = t('imageTools.noImageSelected');
+      return;
+    }
+    
+    isProcessing = true;
+    error = '';
+    
+    try {
+      // 在 Tauri 环境中使用 Rust 后端压缩，在浏览器中使用 JavaScript 库
+      if (isTauriAvailable && invokeFn) {
+        // 使用 Rust 后端压缩
+        const arrayBuffer = await imageFile.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        // 检查文件类型
+        const fileName = imageFile.name.toLowerCase();
+        const isWebP = fileName.endsWith('.webp') || imageFile.type === 'image/webp';
+        const format = isWebP ? 'webp' : (fileName.endsWith('.png') || imageFile.type === 'image/png' ? 'png' : undefined);
+        
+        const result = await invokeFn('compress_image', {
+          request: {
+            image_data: Array.from(uint8Array),
+            quality: compressionQuality,
+            format: format
+          }
+        });
+        
+        // 如果压缩后文件更大，保持原文件
+        if (result.compressed_size >= originalSize && result.format === 'original') {
+          if (compressedImageUrl) {
+            URL.revokeObjectURL(compressedImageUrl);
+          }
+          compressedImageBlob = imageFile;
+          compressedImageUrl = imageUrl;
+          compressedSize = originalSize;
+          error = t('imageTools.compress.webpNoCompression') || 'Image is already optimized. No compression applied.';
+          setTimeout(() => {
+            error = '';
+          }, 3000);
+        } else {
+          // 创建 Blob 对象
+          // Tauri 返回的 compressed_data 是数字数组，需要转换为 Uint8Array
+          const uint8Array = new Uint8Array(result.compressed_data);
+          const mimeType = result.format === 'webp' ? 'image/webp' : 
+                          result.format === 'png' ? 'image/png' : 
+                          'image/jpeg';
+          const blob = new Blob([uint8Array], { type: mimeType });
+          
+          if (compressedImageUrl) {
+            URL.revokeObjectURL(compressedImageUrl);
+          }
+          compressedImageBlob = blob;
+          compressedImageUrl = URL.createObjectURL(blob);
+          // 使用 Blob 的实际大小，确保显示的大小和下载的大小一致
+          compressedSize = blob.size;
+        }
+      } else {
+        // 浏览器环境：使用 browser-image-compression 库
+        const fileName = imageFile.name.toLowerCase();
+        const isWebP = fileName.endsWith('.webp') || imageFile.type === 'image/webp';
+        const isPNG = fileName.endsWith('.png') || imageFile.type === 'image/png';
+        
+        let options: any;
+        
+        if (isWebP) {
+          options = {
+            maxSizeMB: originalSize / (1024 * 1024) * 0.9,
+            maxWidthOrHeight: 4096,
+            useWebWorker: true,
+            fileType: 'image/webp',
+            initialQuality: Math.max(0.5, compressionQuality - 0.1),
+            alwaysKeepResolution: true
+          };
+        } else if (isPNG) {
+          options = {
+            maxSizeMB: originalSize / (1024 * 1024) * 0.8,
+            maxWidthOrHeight: 4096,
+            useWebWorker: true,
+            fileType: undefined,
+            initialQuality: compressionQuality,
+            alwaysKeepResolution: true
+          };
+        } else {
+          options = {
+            maxSizeMB: originalSize / (1024 * 1024) * 0.8,
+            maxWidthOrHeight: 4096,
+            useWebWorker: true,
+            fileType: undefined,
+            initialQuality: compressionQuality,
+            alwaysKeepResolution: true
+          };
+        }
+        
+        const compressedFile = await imageCompression(imageFile, options);
+        
+        // 如果压缩后文件更大，尝试降低质量
+        if (compressedFile.size >= originalSize) {
+          if (isWebP) {
+            const lowerQualityOptions = {
+              ...options,
+              initialQuality: Math.max(0.3, compressionQuality - 0.3),
+              maxSizeMB: originalSize / (1024 * 1024) * 0.7
+            };
+            
+            const lowerQualityFile = await imageCompression(imageFile, lowerQualityOptions);
+            
+            if (lowerQualityFile.size < originalSize && lowerQualityFile.size < compressedFile.size) {
+              if (compressedImageUrl) {
+                URL.revokeObjectURL(compressedImageUrl);
+              }
+              compressedImageBlob = lowerQualityFile;
+              compressedImageUrl = URL.createObjectURL(lowerQualityFile);
+              compressedSize = lowerQualityFile.size;
+            } else {
+              if (compressedImageUrl) {
+                URL.revokeObjectURL(compressedImageUrl);
+              }
+              compressedImageBlob = imageFile;
+              compressedImageUrl = imageUrl;
+              compressedSize = originalSize;
+              error = t('imageTools.compress.webpNoCompression') || 'WebP file is already optimized. No compression applied.';
+              setTimeout(() => {
+                error = '';
+              }, 3000);
+            }
+          } else {
+            const lowerQualityOptions = {
+              ...options,
+              initialQuality: Math.max(0.3, compressionQuality - 0.3),
+              maxSizeMB: originalSize / (1024 * 1024) * 0.5
+            };
+            
+            const lowerQualityFile = await imageCompression(imageFile, lowerQualityOptions);
+            
+            if (lowerQualityFile.size < compressedFile.size && lowerQualityFile.size < originalSize) {
+              if (compressedImageUrl) {
+                URL.revokeObjectURL(compressedImageUrl);
+              }
+              compressedImageBlob = lowerQualityFile;
+              compressedImageUrl = URL.createObjectURL(lowerQualityFile);
+              compressedSize = lowerQualityFile.size;
+            } else if (compressedFile.size < originalSize) {
+              if (compressedImageUrl) {
+                URL.revokeObjectURL(compressedImageUrl);
+              }
+              compressedImageBlob = compressedFile;
+              compressedImageUrl = URL.createObjectURL(compressedFile);
+              compressedSize = compressedFile.size;
+            } else {
+              if (compressedImageUrl) {
+                URL.revokeObjectURL(compressedImageUrl);
+              }
+              compressedImageBlob = imageFile;
+              compressedImageUrl = imageUrl;
+              compressedSize = originalSize;
+            }
+          }
+        } else {
+          if (compressedImageUrl) {
+            URL.revokeObjectURL(compressedImageUrl);
+          }
+          compressedImageBlob = compressedFile;
+          compressedImageUrl = URL.createObjectURL(compressedFile);
+          compressedSize = compressedFile.size;
+        }
+      }
+      
+      isProcessing = false;
+      
+    } catch (err) {
+      error = `Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      isProcessing = false;
+    }
+  }
+
+  async function downloadCompressedImage() {
+    if (!compressedImageUrl || !compressedImageBlob) return;
+    
+    successMessage = '';
+    error = '';
+    
+    // Use Tauri save dialog if available
+    if (isTauriAvailable && saveFn && writeFileFn) {
+      try {
+        const originalName = imageFile?.name.split('.').slice(0, -1).join('.') || 'image';
+        // 从压缩后的文件获取扩展名
+        const compressedFileName = compressedImageBlob.name || '';
+        const ext = compressedFileName.split('.').pop() || 
+                   (compressedImageBlob.type === 'image/jpeg' ? 'jpg' : 
+                    compressedImageBlob.type === 'image/png' ? 'png' :
+                    compressedImageBlob.type === 'image/webp' ? 'webp' :
+                    imageFile?.name.split('.').pop() || 'jpg');
+        const defaultName = `kairoa_compressed_${originalName}.${ext}`;
+        
+        // Show save dialog
+        const filePath = await saveFn({
+          defaultPath: defaultName,
+          filters: [{
+            name: 'Image',
+            extensions: [ext]
+          }]
+        });
+        
+        if (filePath) {
+          const arrayBuffer = await compressedImageBlob.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          
+          // Write file using Tauri
+          await writeFileFn(filePath, uint8Array);
+          
+          // Show success message
+          successMessage = t('imageTools.saveSuccess');
+          setTimeout(() => {
+            successMessage = '';
+          }, 3000);
+        }
+      } catch (err) {
+        error = `${t('imageTools.saveFailed')}: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      }
+    } else {
+      // Fallback to browser download
+      const a = document.createElement('a');
+      a.href = compressedImageUrl;
+      const originalName = imageFile?.name.split('.').slice(0, -1).join('.') || 'image';
+      // 从压缩后的文件获取扩展名
+      const compressedFileName = compressedImageBlob.name || '';
+      const ext = compressedFileName.split('.').pop() || 
+                 (compressedImageBlob.type === 'image/jpeg' ? 'jpg' : 
+                  compressedImageBlob.type === 'image/png' ? 'png' :
+                  compressedImageBlob.type === 'image/webp' ? 'webp' :
+                  imageFile?.name.split('.').pop() || 'jpg');
+      a.download = `kairoa_compressed_${originalName}.${ext}`;
+      a.click();
+      
+      successMessage = t('imageTools.downloadStarted');
+      setTimeout(() => {
+        successMessage = '';
+      }, 3000);
+    }
+  }
   
   function clearImage() {
     if (imageUrl) {
@@ -469,15 +738,22 @@
     if (convertedImageUrl) {
       URL.revokeObjectURL(convertedImageUrl);
     }
+    if (compressedImageUrl) {
+      URL.revokeObjectURL(compressedImageUrl);
+    }
     imageFile = null;
     imageUrl = '';
     processedImageUrl = '';
     convertedImageUrl = '';
     convertedImageBlob = null;
+    compressedImageUrl = '';
+    compressedImageBlob = null;
     rotationAngle = 0;
     realTimeRotation = 0;
     error = '';
     successMessage = '';
+    originalSize = 0;
+    compressedSize = 0;
     
     // Reset scale
     originalWidth = 0;
@@ -485,6 +761,7 @@
     scaleWidth = 0;
     scaleHeight = 0;
     scalePercentage = 100;
+    scaledSize = 0;
     
     // 重置 input 元素的 value，以便可以再次选择同一张图片
     const input = document.getElementById('image-upload') as HTMLInputElement;
@@ -590,6 +867,8 @@
             URL.revokeObjectURL(processedImageUrl);
           }
           processedImageUrl = URL.createObjectURL(blob);
+          // 存储缩放后的文件大小
+          scaledSize = blob.size;
         }
         isProcessing = false;
       }, imageFile.type);
@@ -738,6 +1017,17 @@
           >
             {t('imageTools.convert.title')}
             {#if toolType === 'convert'}
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
+            {/if}
+          </button>
+          <button
+            onclick={() => switchToolType('compress')}
+            class="px-4 py-2 relative transition-colors font-medium {toolType === 'compress'
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          >
+            {t('imageTools.compress.title')}
+            {#if toolType === 'compress'}
               <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
             {/if}
           </button>
@@ -1197,20 +1487,21 @@
                 </label>
               </div>
             </div>
-            
-            {#if originalWidth > 0 && originalHeight > 0}
-              <div class="text-xs text-gray-500 dark:text-gray-400">
-                {t('imageTools.scale.originalSize')}: {originalWidth} × {originalHeight} px
-              </div>
-            {/if}
           </div>
 
           <!-- Image Preview -->
           <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-0">
             <div class="flex flex-col">
-              <h3 class="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                {t('imageTools.original')}
-              </h3>
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('imageTools.original')}
+                </h3>
+                {#if originalSize > 0}
+                  <div class="text-xs text-gray-500 dark:text-gray-400">
+                    {(originalSize / 1024).toFixed(2)} KB
+                  </div>
+                {/if}
+              </div>
               <div 
                 class="flex-1 border rounded-lg overflow-hidden flex items-center justify-center transition-all duration-200 {isDragging ? 'border-primary-500 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/30 border-2' : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800'}"
                 ondrop={handleDrop}
@@ -1223,9 +1514,16 @@
             </div>
             {#if processedImageUrl}
               <div class="flex flex-col">
-                <h3 class="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                  {t('imageTools.processed')}
-                </h3>
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('imageTools.processed')}
+                  </h3>
+                  {#if scaledSize > 0}
+                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                      {(scaledSize / 1024).toFixed(2)} KB
+                    </div>
+                  {/if}
+                </div>
                 <div 
                   class="flex-1 border rounded-lg overflow-hidden flex items-center justify-center transition-all duration-200 {isDragging ? 'border-primary-500 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/30 border-2' : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800'}"
                   ondrop={handleDrop}
@@ -1360,6 +1658,160 @@
                 {#if convertedImageUrl}
                   <button
                     onclick={downloadConvertedImage}
+                    class="btn-secondary flex items-center gap-2"
+                  >
+                    <Download class="w-4 h-4" />
+                    {t('imageTools.download')}
+                  </button>
+                {/if}
+                <button
+                  onclick={clearImage}
+                  class="btn-secondary"
+                >
+                  {t('imageTools.clear')}
+                </button>
+              </div>
+            </div>
+          {/if}
+        </div>
+
+        {#if error}
+          <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p class="text-sm text-red-800 dark:text-red-200">{error}</p>
+          </div>
+        {/if}
+
+        {#if successMessage}
+          <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <p class="text-sm text-green-800 dark:text-green-200">{successMessage}</p>
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    <!-- Compress Tool -->
+    {#if toolType === 'compress'}
+      <div 
+        class="flex-1 flex flex-col space-y-4 min-h-0 overflow-y-auto transition-all duration-200 {isDragging ? 'ring-2 ring-primary-500 dark:ring-primary-400 ring-offset-2 bg-primary-50/50 dark:bg-primary-900/20' : ''}"
+        ondrop={(e) => { e.stopPropagation(); handleDrop(e); }}
+        ondragover={(e) => { e.stopPropagation(); handleDragOver(e); }}
+        ondragenter={(e) => { e.stopPropagation(); handleDragEnter(e); }}
+        ondragleave={(e) => { e.stopPropagation(); handleDragLeave(e); }}
+      >
+        <!-- File Upload Input -->
+        <input
+          type="file"
+          id="image-upload-compress"
+          accept="image/*"
+          onchange={handleFileSelect}
+          class="hidden"
+        />
+        
+        <!-- 图片上传区域 -->
+        <div class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 hover:border-primary-500 dark:hover:border-primary-400 transition-colors bg-gray-50 dark:bg-gray-800/50">
+          {#if !imageUrl}
+            <div
+              role="button"
+              tabindex="0"
+              class="text-center cursor-pointer"
+              onclick={() => document.getElementById('image-upload-compress')?.click()}
+              onkeydown={(e) => e.key === 'Enter' && document.getElementById('image-upload-compress')?.click()}
+            >
+              <Upload class="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4 mx-auto" />
+              <p class="text-gray-600 dark:text-gray-400 mb-2">
+                {t('imageTools.dragDropImage')}
+              </p>
+              <p class="text-sm text-gray-500 dark:text-gray-500">
+                {t('imageTools.supportedFormats')}
+              </p>
+            </div>
+          {:else}
+            <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- 原始图片 -->
+              <div class="space-y-3 flex flex-col">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {t('imageTools.original')}
+                </h3>
+                <div class="border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900 flex items-center justify-center" style="min-height: 384px;">
+                  <img
+                    src={imageUrl}
+                    alt="Original"
+                    class="w-full h-auto max-h-96 object-contain"
+                  />
+                </div>
+                {#if originalSize > 0}
+                  <p class="text-sm text-gray-600 dark:text-gray-400">
+                    {t('imageTools.compress.originalSize')}: {(originalSize / 1024).toFixed(2)} KB
+                  </p>
+                {/if}
+              </div>
+
+              <!-- 压缩后图片 -->
+              <div class="space-y-3 flex flex-col">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {t('imageTools.compress.compressed')}
+                </h3>
+                <div class="border-2 {compressedImageUrl ? 'border-primary-500 dark:border-primary-400' : 'border-dashed border-gray-300 dark:border-gray-600'} rounded-lg overflow-hidden {compressedImageUrl ? 'bg-gray-100 dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800/50'} flex items-center justify-center" style="min-height: 384px;">
+                  {#if compressedImageUrl}
+                    <img
+                      src={compressedImageUrl}
+                      alt="Compressed"
+                      class="w-full h-auto max-h-96 object-contain"
+                    />
+                  {:else}
+                    <p class="text-gray-500 dark:text-gray-400">
+                      {t('imageTools.compress.previewPlaceholder')}
+                    </p>
+                  {/if}
+                </div>
+                {#if compressedSize > 0}
+                  <div class="space-y-1">
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                      {t('imageTools.compress.compressedSize')}: {(compressedSize / 1024).toFixed(2)} KB
+                    </p>
+                    <p class="text-sm {compressedSize < originalSize ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}">
+                      {t('imageTools.compress.compressionRatio')}: {((1 - compressedSize / originalSize) * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                {/if}
+              </div>
+            </div>
+
+            <!-- 压缩质量设置和控制 -->
+            <div class="w-full max-w-4xl space-y-4 mt-6">
+              <div class="space-y-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('imageTools.compress.quality')}: {Math.round(compressionQuality * 100)}%
+                </label>
+                <input
+                  type="range"
+                  bind:value={compressionQuality}
+                  min="0.1"
+                  max="1"
+                  step="0.05"
+                  class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                />
+                <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <span>{t('imageTools.compress.lowQuality')}</span>
+                  <span>{t('imageTools.compress.highQuality')}</span>
+                </div>
+              </div>
+
+              <div class="flex gap-3">
+                <button
+                  onclick={compressImage}
+                  disabled={isProcessing || !imageUrl}
+                  class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {#if isProcessing}
+                    {t('imageTools.processing')}
+                  {:else}
+                    {t('imageTools.compress.compress')}
+                  {/if}
+                </button>
+                {#if compressedImageUrl}
+                  <button
+                    onclick={downloadCompressedImage}
                     class="btn-secondary flex items-center gap-2"
                   >
                     <Download class="w-4 h-4" />
