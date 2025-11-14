@@ -5,14 +5,14 @@
   import { page } from '$app/stores';
   import imageCompression from 'browser-image-compression';
   
-  type ToolType = 'rotate' | 'scale' | 'convert' | 'compress';
+  type ToolType = 'rotate' | 'scale' | 'convert' | 'compress' | 'transparent';
   
   let toolType = $state<ToolType>('rotate');
   
   // Check URL parameter for type
   $effect(() => {
     const typeParam = $page.url.searchParams.get('type');
-    if (typeParam === 'rotate' || typeParam === 'scale' || typeParam === 'convert' || typeParam === 'compress') {
+    if (typeParam === 'rotate' || typeParam === 'scale' || typeParam === 'convert' || typeParam === 'compress' || typeParam === 'transparent') {
       toolType = typeParam as ToolType;
     }
   });
@@ -47,6 +47,13 @@
   let compressedImageBlob = $state<Blob | null>(null);
   let originalSize = $state<number>(0); // bytes
   let compressedSize = $state<number>(0); // bytes
+  
+  // Transparent background related state
+  let backgroundColor = $state<string>('#FFFFFF'); // 要移除的背景色
+  let colorTolerance = $state<number>(10); // 颜色容差 (0-100)
+  let transparentImageUrl = $state<string>('');
+  let transparentImageBlob = $state<Blob | null>(null);
+  let transparentSize = $state<number>(0); // bytes
   
   // Tauri API
   let saveFn: ((options: any) => Promise<string | null>) | null = $state(null);
@@ -121,6 +128,12 @@
         compressedImageBlob = null;
         compressedSize = 0;
       }
+      if (transparentImageUrl) {
+        URL.revokeObjectURL(transparentImageUrl);
+        transparentImageUrl = '';
+        transparentImageBlob = null;
+        transparentSize = 0;
+      }
       
       // Reset rotation
       rotationAngle = 0;
@@ -134,6 +147,11 @@
         scaleWidth = img.width;
         scaleHeight = img.height;
         scalePercentage = 100;
+        
+        // Auto-detect background color for transparent tool
+        if (toolType === 'transparent') {
+          detectBackgroundColor();
+        }
       };
       img.src = imageUrl;
       
@@ -240,6 +258,12 @@
         compressedImageBlob = null;
         compressedSize = 0;
       }
+      if (transparentImageUrl) {
+        URL.revokeObjectURL(transparentImageUrl);
+        transparentImageUrl = '';
+        transparentImageBlob = null;
+        transparentSize = 0;
+      }
       
       // Reset rotation
       rotationAngle = 0;
@@ -253,6 +277,11 @@
         scaleWidth = img.width;
         scaleHeight = img.height;
         scalePercentage = 100;
+        
+        // Auto-detect background color for transparent tool
+        if (toolType === 'transparent') {
+          detectBackgroundColor();
+        }
       };
       img.src = imageUrl;
     } else {
@@ -741,6 +770,9 @@
     if (compressedImageUrl) {
       URL.revokeObjectURL(compressedImageUrl);
     }
+    if (transparentImageUrl) {
+      URL.revokeObjectURL(transparentImageUrl);
+    }
     imageFile = null;
     imageUrl = '';
     processedImageUrl = '';
@@ -748,12 +780,15 @@
     convertedImageBlob = null;
     compressedImageUrl = '';
     compressedImageBlob = null;
+    transparentImageUrl = '';
+    transparentImageBlob = null;
     rotationAngle = 0;
     realTimeRotation = 0;
     error = '';
     successMessage = '';
     originalSize = 0;
     compressedSize = 0;
+    transparentSize = 0;
     
     // Reset scale
     originalWidth = 0;
@@ -762,6 +797,10 @@
     scaleHeight = 0;
     scalePercentage = 100;
     scaledSize = 0;
+    
+    // Reset transparent
+    backgroundColor = '#FFFFFF';
+    colorTolerance = 10;
     
     // 重置 input 元素的 value，以便可以再次选择同一张图片
     const input = document.getElementById('image-upload') as HTMLInputElement;
@@ -876,6 +915,249 @@
     } catch (err) {
       error = `Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
       isProcessing = false;
+    }
+  }
+  
+  // Transparent background functions
+  // Convert hex color to RGB
+  function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : null;
+  }
+  
+  // Convert RGB to hex
+  function rgbToHex(r: number, g: number, b: number): string {
+    return '#' + [r, g, b].map(x => {
+      const hex = x.toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+  }
+  
+  // Calculate color distance
+  function colorDistance(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): number {
+    return Math.sqrt(Math.pow(r1 - r2, 2) + Math.pow(g1 - g2, 2) + Math.pow(b1 - b2, 2));
+  }
+  
+  // Auto-detect background color by sampling corners and edges
+  async function detectBackgroundColor(): Promise<void> {
+    if (!imageUrl) {
+      error = t('imageTools.noImageSelected');
+      return;
+    }
+    
+    try {
+      const img = new Image();
+      img.src = imageUrl;
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+      
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        throw new Error('Failed to get canvas context');
+      }
+      
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      
+      // Sample points: four corners and center of each edge
+      const sampleSize = Math.max(1, Math.floor(Math.min(img.width, img.height) * 0.05)); // 5% of smaller dimension
+      const samples: { r: number; g: number; b: number }[] = [];
+      
+      // Top-left corner
+      const topLeft = ctx.getImageData(0, 0, sampleSize, sampleSize);
+      samples.push(...getAverageColorFromImageData(topLeft));
+      
+      // Top-right corner
+      const topRight = ctx.getImageData(img.width - sampleSize, 0, sampleSize, sampleSize);
+      samples.push(...getAverageColorFromImageData(topRight));
+      
+      // Bottom-left corner
+      const bottomLeft = ctx.getImageData(0, img.height - sampleSize, sampleSize, sampleSize);
+      samples.push(...getAverageColorFromImageData(bottomLeft));
+      
+      // Bottom-right corner
+      const bottomRight = ctx.getImageData(img.width - sampleSize, img.height - sampleSize, sampleSize, sampleSize);
+      samples.push(...getAverageColorFromImageData(bottomRight));
+      
+      // Top edge center
+      const topCenter = ctx.getImageData(Math.floor(img.width / 2) - Math.floor(sampleSize / 2), 0, sampleSize, sampleSize);
+      samples.push(...getAverageColorFromImageData(topCenter));
+      
+      // Bottom edge center
+      const bottomCenter = ctx.getImageData(Math.floor(img.width / 2) - Math.floor(sampleSize / 2), img.height - sampleSize, sampleSize, sampleSize);
+      samples.push(...getAverageColorFromImageData(bottomCenter));
+      
+      // Left edge center
+      const leftCenter = ctx.getImageData(0, Math.floor(img.height / 2) - Math.floor(sampleSize / 2), sampleSize, sampleSize);
+      samples.push(...getAverageColorFromImageData(leftCenter));
+      
+      // Right edge center
+      const rightCenter = ctx.getImageData(img.width - sampleSize, Math.floor(img.height / 2) - Math.floor(sampleSize / 2), sampleSize, sampleSize);
+      samples.push(...getAverageColorFromImageData(rightCenter));
+      
+      // Calculate average color from all samples
+      if (samples.length > 0) {
+        const avgR = Math.round(samples.reduce((sum, c) => sum + c.r, 0) / samples.length);
+        const avgG = Math.round(samples.reduce((sum, c) => sum + c.g, 0) / samples.length);
+        const avgB = Math.round(samples.reduce((sum, c) => sum + c.b, 0) / samples.length);
+        
+        backgroundColor = rgbToHex(avgR, avgG, avgB);
+      }
+    } catch (err) {
+      error = `Error detecting background color: ${err instanceof Error ? err.message : 'Unknown error'}`;
+    }
+  }
+  
+  // Get average color from ImageData
+  function getAverageColorFromImageData(imageData: ImageData): { r: number; g: number; b: number }[] {
+    const data = imageData.data;
+    const colors: { r: number; g: number; b: number }[] = [];
+    
+    // Sample every 4th pixel to get a representative sample
+    for (let i = 0; i < data.length; i += 16) {
+      colors.push({
+        r: data[i],
+        g: data[i + 1],
+        b: data[i + 2]
+      });
+    }
+    
+    return colors;
+  }
+  
+  async function makeTransparent() {
+    if (!imageFile || !imageUrl) {
+      error = t('imageTools.noImageSelected');
+      return;
+    }
+    
+    isProcessing = true;
+    error = '';
+    
+    try {
+      const img = new Image();
+      img.src = imageUrl;
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+      
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        throw new Error('Failed to get canvas context');
+      }
+      
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // Draw the image
+      ctx.drawImage(img, 0, 0);
+      
+      // Get image data
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      // Get target background color
+      const targetColor = hexToRgb(backgroundColor);
+      if (!targetColor) {
+        throw new Error('Invalid background color');
+      }
+      
+      // Calculate tolerance (0-100 to 0-441.67, which is max distance in RGB space)
+      const tolerance = (colorTolerance / 100) * 441.67;
+      
+      // Process each pixel
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        
+        // Calculate distance from target color
+        const distance = colorDistance(r, g, b, targetColor.r, targetColor.g, targetColor.b);
+        
+        // If within tolerance, make transparent
+        if (distance <= tolerance) {
+          data[i + 3] = 0; // Set alpha to 0 (transparent)
+        }
+      }
+      
+      // Put the modified image data back
+      ctx.putImageData(imageData, 0, 0);
+      
+      // Convert to blob (PNG format to support transparency)
+      canvas.toBlob((blob) => {
+        if (blob) {
+          if (transparentImageUrl) {
+            URL.revokeObjectURL(transparentImageUrl);
+          }
+          transparentImageBlob = blob;
+          transparentImageUrl = URL.createObjectURL(blob);
+          transparentSize = blob.size;
+        }
+        isProcessing = false;
+      }, 'image/png');
+      
+    } catch (err) {
+      error = `Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      isProcessing = false;
+    }
+  }
+  
+  async function downloadTransparentImage() {
+    if (!transparentImageUrl || !transparentImageBlob) return;
+    
+    successMessage = '';
+    error = '';
+    
+    if (isTauriAvailable && saveFn && writeFileFn) {
+      try {
+        const originalName = imageFile?.name.split('.').slice(0, -1).join('.') || 'image';
+        const defaultName = `kairoa_transparent_${originalName}.png`;
+        
+        const filePath = await saveFn({
+          defaultPath: defaultName,
+          filters: [{
+            name: 'Image',
+            extensions: ['png']
+          }]
+        });
+        
+        if (filePath) {
+          const arrayBuffer = await transparentImageBlob.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          await writeFileFn(filePath, uint8Array);
+          successMessage = t('imageTools.saveSuccess');
+          setTimeout(() => {
+            successMessage = '';
+          }, 3000);
+        }
+      } catch (err) {
+        error = `${t('imageTools.saveFailed')}: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      }
+    } else {
+      const a = document.createElement('a');
+      a.href = transparentImageUrl;
+      const originalName = imageFile?.name.split('.').slice(0, -1).join('.') || 'image';
+      a.download = `kairoa_transparent_${originalName}.png`;
+      a.click();
+      
+      successMessage = t('imageTools.downloadStarted');
+      setTimeout(() => {
+        successMessage = '';
+      }, 3000);
     }
   }
   
@@ -1028,6 +1310,17 @@
           >
             {t('imageTools.compress.title')}
             {#if toolType === 'compress'}
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
+            {/if}
+          </button>
+          <button
+            onclick={() => switchToolType('transparent')}
+            class="px-4 py-2 relative transition-colors font-medium {toolType === 'transparent'
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          >
+            {t('imageTools.transparent.title')}
+            {#if toolType === 'transparent'}
               <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
             {/if}
           </button>
@@ -1824,6 +2117,214 @@
                 >
                   {t('imageTools.clear')}
                 </button>
+              </div>
+            </div>
+          {/if}
+        </div>
+
+        {#if error}
+          <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p class="text-sm text-red-800 dark:text-red-200">{error}</p>
+          </div>
+        {/if}
+
+        {#if successMessage}
+          <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <p class="text-sm text-green-800 dark:text-green-200">{successMessage}</p>
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    <!-- Transparent Background Tool -->
+    {#if toolType === 'transparent'}
+      <div 
+        class="flex-1 flex flex-col space-y-4 min-h-0 overflow-y-auto transition-all duration-200 {isDragging ? 'ring-2 ring-primary-500 dark:ring-primary-400 ring-offset-2 bg-primary-50/50 dark:bg-primary-900/20' : ''}"
+        ondrop={(e) => { e.stopPropagation(); handleDrop(e); }}
+        ondragover={(e) => { e.stopPropagation(); handleDragOver(e); }}
+        ondragenter={(e) => { e.stopPropagation(); handleDragEnter(e); }}
+        ondragleave={(e) => { e.stopPropagation(); handleDragLeave(e); }}
+      >
+        <!-- File Upload Input -->
+        <input
+          type="file"
+          id="image-upload-transparent"
+          accept="image/*"
+          onchange={handleFileSelect}
+          class="hidden"
+        />
+        
+        <!-- 图片上传区域 -->
+        <div class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 hover:border-primary-500 dark:hover:border-primary-400 transition-colors bg-gray-50 dark:bg-gray-800/50">
+          {#if !imageUrl}
+            <div
+              role="button"
+              tabindex="0"
+              class="text-center cursor-pointer"
+              onclick={() => document.getElementById('image-upload-transparent')?.click()}
+              onkeydown={(e) => e.key === 'Enter' && document.getElementById('image-upload-transparent')?.click()}
+            >
+              <Upload class="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4 mx-auto" />
+              <p class="text-gray-600 dark:text-gray-400 mb-2">
+                {t('imageTools.dragDropImage')}
+              </p>
+              <p class="text-sm text-gray-500 dark:text-gray-500">
+                {t('imageTools.supportedFormats')}
+              </p>
+            </div>
+          {:else}
+            <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- Controls -->
+              <div class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                  {t('imageTools.transparent.title')}
+                </h3>
+                
+                <!-- Background Color Picker -->
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('imageTools.transparent.backgroundColor')}
+                    </label>
+                    <button
+                      onclick={detectBackgroundColor}
+                      class="text-xs px-3 py-1.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded hover:bg-primary-200 dark:hover:bg-primary-900/50 transition-colors"
+                      disabled={!imageUrl || isProcessing}
+                    >
+                      {t('imageTools.transparent.autoDetect')}
+                    </button>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <input
+                      type="color"
+                      bind:value={backgroundColor}
+                      class="w-16 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      bind:value={backgroundColor}
+                      class="input flex-1"
+                      placeholder="#FFFFFF"
+                    />
+                  </div>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {t('imageTools.transparent.backgroundColorHint')}
+                  </p>
+                </div>
+                
+                <!-- Color Tolerance -->
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('imageTools.transparent.tolerance')}
+                    </label>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">{colorTolerance}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    bind:value={colorTolerance}
+                    class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                    style="accent-color: rgb(59, 130, 246);"
+                  />
+                  <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>{t('imageTools.transparent.lowTolerance')}</span>
+                    <span>{t('imageTools.transparent.highTolerance')}</span>
+                  </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex gap-3">
+                  <button
+                    onclick={makeTransparent}
+                    disabled={isProcessing}
+                    class="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isProcessing ? t('imageTools.processing') : t('imageTools.transparent.apply')}
+                  </button>
+                  {#if transparentImageUrl}
+                    <button
+                      onclick={downloadTransparentImage}
+                      class="btn-secondary flex items-center gap-2"
+                    >
+                      <Download class="w-4 h-4" />
+                      {t('imageTools.download')}
+                    </button>
+                  {/if}
+                </div>
+                
+                <button
+                  onclick={clearImage}
+                  class="btn-secondary w-full"
+                >
+                  {t('imageTools.clear')}
+                </button>
+              </div>
+              
+              <!-- Image Preview -->
+              <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-0">
+                <div class="flex flex-col">
+                  <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('imageTools.original')}
+                    </h3>
+                    {#if originalSize > 0}
+                      <div class="text-xs text-gray-500 dark:text-gray-400">
+                        {(originalSize / 1024).toFixed(2)} KB
+                      </div>
+                    {/if}
+                  </div>
+                  <div 
+                    class="flex-1 border rounded-lg overflow-hidden flex items-center justify-center transition-all duration-200 {isDragging ? 'border-primary-500 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/30 border-2' : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800'}"
+                    ondrop={handleDrop}
+                    ondragover={handleDragOver}
+                    ondragenter={handleDragEnter}
+                    ondragleave={handleDragLeave}
+                  >
+                    <img src={imageUrl} alt="Original" class="max-w-full max-h-full object-contain pointer-events-none" />
+                  </div>
+                </div>
+                {#if transparentImageUrl}
+                  <div class="flex flex-col">
+                    <div class="flex items-center justify-between mb-2">
+                      <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('imageTools.processed')}
+                      </h3>
+                      {#if transparentSize > 0}
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                          {(transparentSize / 1024).toFixed(2)} KB
+                        </div>
+                      {/if}
+                    </div>
+                    <div 
+                      class="flex-1 border rounded-lg overflow-hidden flex items-center justify-center bg-[linear-gradient(45deg,#808080_25%,transparent_25%),linear-gradient(-45deg,#808080_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#808080_75%),linear-gradient(-45deg,transparent_75%,#808080_75%)] bg-[length:20px_20px] bg-[0_0,0_10px,10px_-10px,-10px_0px] transition-all duration-200 {isDragging ? 'border-primary-500 dark:border-primary-400 border-2' : 'border-gray-300 dark:border-gray-600'}"
+                      ondrop={handleDrop}
+                      ondragover={handleDragOver}
+                      ondragenter={handleDragEnter}
+                      ondragleave={handleDragLeave}
+                    >
+                      <img src={transparentImageUrl} alt="Transparent" class="max-w-full max-h-full object-contain pointer-events-none" />
+                    </div>
+                  </div>
+                {:else}
+                  <div class="flex flex-col">
+                    <h3 class="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      {t('imageTools.transparent.previewPlaceholder')}
+                    </h3>
+                    <div 
+                      class="flex-1 border-2 border-dashed rounded-lg overflow-hidden flex items-center justify-center transition-all duration-200 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800"
+                      ondrop={handleDrop}
+                      ondragover={handleDragOver}
+                      ondragenter={handleDragEnter}
+                      ondragleave={handleDragLeave}
+                    >
+                      <p class="text-gray-400 dark:text-gray-500 text-sm text-center px-4">
+                        {t('imageTools.transparent.previewPlaceholder')}
+                      </p>
+                    </div>
+                  </div>
+                {/if}
               </div>
             </div>
           {/if}

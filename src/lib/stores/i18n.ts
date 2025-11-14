@@ -99,6 +99,17 @@ const translations = {
         lowQuality: 'Low Quality (Smaller Size)',
         highQuality: 'High Quality (Larger Size)',
         webpNoCompression: 'WebP file is already optimized. No compression applied.'
+      },
+      transparent: {
+        title: 'Transparent Background',
+        backgroundColor: 'Background Color',
+        backgroundColorHint: 'Select the color to remove from the image',
+        autoDetect: 'Auto Detect',
+        tolerance: 'Color Tolerance',
+        lowTolerance: 'Precise',
+        highTolerance: 'Loose',
+        apply: 'Remove Background',
+        previewPlaceholder: 'Transparent image will appear here'
       }
     },
     hash: {
@@ -716,6 +727,17 @@ const translations = {
         lowQuality: '低质量（文件更小）',
         highQuality: '高质量（文件更大）',
         webpNoCompression: 'WebP 文件已经过优化，未进行压缩。'
+      },
+      transparent: {
+        title: '背景透明',
+        backgroundColor: '背景颜色',
+        backgroundColorHint: '选择要从图片中移除的颜色',
+        autoDetect: '自动识别',
+        tolerance: '颜色容差',
+        lowTolerance: '精确',
+        highTolerance: '宽松',
+        apply: '移除背景',
+        previewPlaceholder: '透明图片将显示在这里'
       }
     },
     hash: {
