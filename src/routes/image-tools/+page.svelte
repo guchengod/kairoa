@@ -4,15 +4,16 @@
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   import imageCompression from 'browser-image-compression';
+  import { jsPDF } from 'jspdf';
   
-  type ToolType = 'rotate' | 'scale' | 'convert' | 'compress' | 'transparent';
+  type ToolType = 'rotate' | 'scale' | 'convert' | 'compress' | 'transparent' | 'pdf-convert';
   
   let toolType = $state<ToolType>('rotate');
   
   // Check URL parameter for type
   $effect(() => {
     const typeParam = $page.url.searchParams.get('type');
-    if (typeParam === 'rotate' || typeParam === 'scale' || typeParam === 'convert' || typeParam === 'compress' || typeParam === 'transparent') {
+    if (typeParam === 'rotate' || typeParam === 'scale' || typeParam === 'convert' || typeParam === 'compress' || typeParam === 'transparent' || typeParam === 'pdf-convert') {
       toolType = typeParam as ToolType;
     }
   });
@@ -54,6 +55,31 @@
   let transparentImageUrl = $state<string>('');
   let transparentImageBlob = $state<Blob | null>(null);
   let transparentSize = $state<number>(0); // bytes
+  
+  // PDF convert related state
+  let pdfConversionMode = $state<'image-to-pdf' | 'pdf-to-image'>('image-to-pdf');
+  let pdfFile = $state<File | null>(null);
+  let pdfUrl = $state<string>('');
+  let pdfConvertedUrl = $state<string>('');
+  let pdfConvertedBlob = $state<Blob | null>(null);
+  let pdfConvertedSize = $state<number>(0); // bytes
+  let scanEffect = $state<boolean>(true); // 是否应用扫描效果
+  let pdfImageFiles = $state<File[]>([]); // 多张图片文件
+  let pdfImageUrls = $state<string[]>([]); // 多张图片的预览URL
+  
+  // Perspective correction for PDF conversion
+  interface Point {
+    x: number;
+    y: number;
+  }
+  let pdfPerspectiveCorners = $state<Point[]>([
+    { x: 0.1, y: 0.1 },   // top-left (relative to image)
+    { x: 0.9, y: 0.1 },   // top-right
+    { x: 0.9, y: 0.9 },   // bottom-right
+    { x: 0.1, y: 0.9 }    // bottom-left
+  ]);
+  let isDraggingPdfCorner = $state<number | null>(null);
+  let autoDetectPdfCorners = $state<boolean>(true);
   
   // Tauri API
   let saveFn: ((options: any) => Promise<string | null>) | null = $state(null);
@@ -97,8 +123,64 @@
   
   function handleFileSelect(event: Event) {
     const target = event.target as HTMLInputElement;
-    const file = target.files?.[0];
+    const files = target.files;
     
+    if (!files || files.length === 0) return;
+    
+    // PDF conversion mode can accept PDF files
+    if (toolType === 'pdf-convert' && pdfConversionMode === 'pdf-to-image') {
+      const file = files[0];
+      const fileName = file.name.toLowerCase();
+      // Check both file type and extension (Tauri may not provide file.type)
+      if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) {
+        handlePdfFileSelect(event);
+        return;
+      } else {
+        error = t('imageTools.pdfConvert.invalidPdfType');
+        target.value = '';
+        return;
+      }
+    }
+    
+    // PDF conversion mode - image to PDF can accept multiple images
+    if (toolType === 'pdf-convert' && pdfConversionMode === 'image-to-pdf') {
+      const imageFiles: File[] = [];
+      const imageUrls: string[] = [];
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type.startsWith('image/')) {
+          imageFiles.push(file);
+          imageUrls.push(URL.createObjectURL(file));
+        }
+      }
+      
+      if (imageFiles.length > 0) {
+        // Clean up old URLs
+        pdfImageUrls.forEach(url => URL.revokeObjectURL(url));
+        
+        pdfImageFiles = imageFiles;
+        pdfImageUrls = imageUrls;
+        error = '';
+        
+        // Also set first image for preview
+        if (imageFiles.length > 0) {
+          if (imageUrl) {
+            URL.revokeObjectURL(imageUrl);
+          }
+          imageFile = imageFiles[0];
+          imageUrl = imageUrls[0];
+          originalSize = imageFiles.reduce((sum, f) => sum + f.size, 0);
+        }
+      } else {
+        error = t('imageTools.invalidImageType');
+        target.value = '';
+      }
+      return;
+    }
+    
+    // Single file mode for other tools
+    const file = files[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
         error = t('imageTools.invalidImageType');
@@ -151,6 +233,11 @@
         // Auto-detect background color for transparent tool
         if (toolType === 'transparent') {
           detectBackgroundColor();
+        }
+        
+        // Auto-detect corners for PDF conversion
+        if (toolType === 'pdf-convert' && pdfConversionMode === 'image-to-pdf' && autoDetectPdfCorners) {
+          autoDetectPdfCornersForImage(img);
         }
       };
       img.src = imageUrl;
@@ -225,8 +312,78 @@
       items: event.dataTransfer?.items?.length
     });
     
-    const file = event.dataTransfer?.files[0];
+    const files = event.dataTransfer?.files;
     
+    if (!files || files.length === 0) return;
+    
+    // PDF conversion mode can accept PDF files
+    if (toolType === 'pdf-convert' && pdfConversionMode === 'pdf-to-image') {
+      const file = files[0];
+      const fileName = file.name.toLowerCase();
+      // Check both file type and extension (Tauri may not provide file.type)
+      if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) {
+        pdfFile = file;
+        error = '';
+        if (pdfUrl) {
+          URL.revokeObjectURL(pdfUrl);
+        }
+        pdfUrl = URL.createObjectURL(file);
+        if (pdfConvertedUrl) {
+          URL.revokeObjectURL(pdfConvertedUrl);
+          pdfConvertedUrl = '';
+          pdfConvertedBlob = null;
+          pdfConvertedSize = 0;
+        }
+        return;
+      } else {
+        error = t('imageTools.pdfConvert.invalidPdfType');
+        return;
+      }
+    }
+    
+    // PDF conversion mode - image to PDF can accept multiple images
+    if (toolType === 'pdf-convert' && pdfConversionMode === 'image-to-pdf') {
+      const imageFiles: File[] = [];
+      const imageUrls: string[] = [];
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileName = file.name.toLowerCase();
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico', '.tiff', '.tif'];
+        const isImageFile = file.type.startsWith('image/') || 
+                           imageExtensions.some(ext => fileName.endsWith(ext));
+        
+        if (isImageFile) {
+          imageFiles.push(file);
+          imageUrls.push(URL.createObjectURL(file));
+        }
+      }
+      
+      if (imageFiles.length > 0) {
+        // Clean up old URLs
+        pdfImageUrls.forEach(url => URL.revokeObjectURL(url));
+        
+        pdfImageFiles = imageFiles;
+        pdfImageUrls = imageUrls;
+        error = '';
+        
+        // Also set first image for preview
+        if (imageFiles.length > 0) {
+          if (imageUrl) {
+            URL.revokeObjectURL(imageUrl);
+          }
+          imageFile = imageFiles[0];
+          imageUrl = imageUrls[0];
+          originalSize = imageFiles.reduce((sum, f) => sum + f.size, 0);
+        }
+      } else {
+        error = t('imageTools.invalidImageType');
+      }
+      return;
+    }
+    
+    // Single file mode for other tools
+    const file = files[0];
     if (file) {
       // 在 Tauri 中，文件类型可能为空，需要检查文件扩展名
       const fileName = file.name.toLowerCase();
@@ -281,6 +438,11 @@
         // Auto-detect background color for transparent tool
         if (toolType === 'transparent') {
           detectBackgroundColor();
+        }
+        
+        // Auto-detect corners for PDF conversion
+        if (toolType === 'pdf-convert' && pdfConversionMode === 'image-to-pdf' && autoDetectPdfCorners) {
+          autoDetectPdfCornersForImage(img);
         }
       };
       img.src = imageUrl;
@@ -758,6 +920,7 @@
   }
   
   function clearImage() {
+    // Revoke all object URLs
     if (imageUrl) {
       URL.revokeObjectURL(imageUrl);
     }
@@ -773,6 +936,19 @@
     if (transparentImageUrl) {
       URL.revokeObjectURL(transparentImageUrl);
     }
+    if (pdfUrl) {
+      URL.revokeObjectURL(pdfUrl);
+    }
+    if (pdfConvertedUrl) {
+      URL.revokeObjectURL(pdfConvertedUrl);
+    }
+    
+    // Revoke all PDF image URLs
+    for (const url of pdfImageUrls) {
+      URL.revokeObjectURL(url);
+    }
+    
+    // Reset all state variables
     imageFile = null;
     imageUrl = '';
     processedImageUrl = '';
@@ -782,10 +958,36 @@
     compressedImageBlob = null;
     transparentImageUrl = '';
     transparentImageBlob = null;
+    pdfFile = null;
+    pdfUrl = '';
+    pdfConvertedUrl = '';
+    pdfConvertedBlob = null;
+    pdfConvertedSize = 0;
+    
+    // Reset PDF image arrays
+    pdfImageFiles = [];
+    pdfImageUrls = [];
+    
+    // Reset file input elements to allow re-selection
+    if (browser) {
+      const pdfInput = document.getElementById('image-upload-pdf') as HTMLInputElement;
+      if (pdfInput) {
+        pdfInput.value = '';
+      }
+    }
+    
+    // Reset rotation
     rotationAngle = 0;
     realTimeRotation = 0;
+    
+    // Reset messages
     error = '';
     successMessage = '';
+    
+    // Reset processing state
+    isProcessing = false;
+    
+    // Reset sizes
     originalSize = 0;
     compressedSize = 0;
     transparentSize = 0;
@@ -802,14 +1004,31 @@
     backgroundColor = '#FFFFFF';
     colorTolerance = 10;
     
-    // 重置 input 元素的 value，以便可以再次选择同一张图片
+    // Reset PDF perspective
+    pdfPerspectiveCorners = [
+      { x: 0.02, y: 0.02 },
+      { x: 0.98, y: 0.02 },
+      { x: 0.98, y: 0.98 },
+      { x: 0.02, y: 0.98 }
+    ];
+    
+    // Reset input elements
     const input = document.getElementById('image-upload') as HTMLInputElement;
     const inputScale = document.getElementById('image-upload-scale') as HTMLInputElement;
+    const inputPdf = document.getElementById('pdf-upload') as HTMLInputElement;
+    const inputPdfImages = document.getElementById('pdf-images-upload') as HTMLInputElement;
+    
     if (input) {
       input.value = '';
     }
     if (inputScale) {
       inputScale.value = '';
+    }
+    if (inputPdf) {
+      inputPdf.value = '';
+    }
+    if (inputPdfImages) {
+      inputPdfImages.value = '';
     }
   }
   
@@ -1161,6 +1380,790 @@
     }
   }
   
+  // PDF conversion functions
+  // Apply scan effect to image (grayscale, contrast, brightness adjustments)
+  // Enhanced to create a more realistic scanned document appearance
+  function applyScanEffect(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): void {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Convert to grayscale and apply scan-like effects
+    for (let i = 0; i < data.length; i += 4) {
+      const x = (i / 4) % width;
+      const y = Math.floor((i / 4) / width);
+      
+      // Convert to grayscale using standard luminance formula
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      
+      // Apply stronger contrast adjustment for scan effect
+      // This makes the document look more like a scanned copy
+      const contrast = 1.4; // Increased from 1.2 for stronger effect
+      const adjustedGray = Math.min(255, Math.max(0, ((gray - 128) * contrast) + 128));
+      
+      // Apply brightness adjustment (slightly brighter for scan look)
+      const brightness = 1.08; // Slightly increased
+      let finalGray = Math.min(255, Math.max(0, adjustedGray * brightness));
+      
+      // Add subtle noise for scan texture (reduced randomness for consistency)
+      // Use position-based noise for more realistic texture
+      const noiseX = Math.sin(x * 0.1) * 1.5;
+      const noiseY = Math.cos(y * 0.1) * 1.5;
+      const randomNoise = (Math.random() - 0.5) * 3;
+      const totalNoise = noiseX + noiseY + randomNoise;
+      finalGray = Math.min(255, Math.max(0, finalGray + totalNoise));
+      
+      // Apply subtle gamma correction for more realistic scan appearance
+      const gamma = 1.1;
+      finalGray = Math.pow(finalGray / 255, 1 / gamma) * 255;
+      
+      // Ensure we stay in valid range
+      const finalValue = Math.round(Math.min(255, Math.max(0, finalGray)));
+      
+      data[i] = finalValue;     // R
+      data[i + 1] = finalValue; // G
+      data[i + 2] = finalValue; // B
+      // Alpha stays the same
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+  }
+  
+  async function convertImageToPdf() {
+    if (pdfImageFiles.length === 0) {
+      error = t('imageTools.noImageSelected');
+      return;
+    }
+    
+    isProcessing = true;
+    error = '';
+    
+    try {
+      // Load all images
+      const images: HTMLImageElement[] = [];
+      for (const url of pdfImageUrls) {
+        const img = new Image();
+        img.src = url;
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+        images.push(img);
+      }
+      
+      if (images.length === 0) {
+        throw new Error('No images loaded');
+      }
+      
+      // Apply perspective correction to each image if enabled
+      const processedCanvases: HTMLCanvasElement[] = [];
+      for (const img of images) {
+        if (autoDetectPdfCorners) {
+          // Auto-detect corners for this image
+          autoDetectPdfCornersForImage(img);
+          // Apply perspective correction
+          const correctedCanvas = await applyPerspectiveCorrectionToImage(img);
+          processedCanvases.push(correctedCanvas);
+        } else {
+          // No correction, use original image
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Failed to get canvas context');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          processedCanvases.push(canvas);
+        }
+      }
+      
+      // Calculate total dimensions
+      // Find the maximum width (all images will be scaled to this width)
+      const maxWidth = Math.max(...processedCanvases.map(canvas => canvas.width));
+      let totalHeight = 0;
+      const imageInfos: Array<{ canvas: HTMLCanvasElement; width: number; height: number; y: number }> = [];
+      
+      // Calculate scaled dimensions for each image (maintain aspect ratio)
+      for (const canvas of processedCanvases) {
+        const scale = maxWidth / canvas.width;
+        const scaledWidth = maxWidth;
+        const scaledHeight = canvas.height * scale;
+        imageInfos.push({
+          canvas,
+          width: scaledWidth,
+          height: scaledHeight,
+          y: totalHeight
+        });
+        totalHeight += scaledHeight;
+      }
+      
+      // Create a large canvas for all images
+      const finalCanvas = document.createElement('canvas');
+      const finalCtx = finalCanvas.getContext('2d');
+      
+      if (!finalCtx) {
+        throw new Error('Failed to get canvas context');
+      }
+      
+      finalCanvas.width = maxWidth;
+      finalCanvas.height = totalHeight;
+      
+      // Fill with white background for seamless blending
+      finalCtx.fillStyle = '#FFFFFF';
+      finalCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+      
+      // Draw all images with seamless blending
+      for (const info of imageInfos) {
+        // Use high-quality image smoothing
+        finalCtx.imageSmoothingEnabled = true;
+        finalCtx.imageSmoothingQuality = 'high';
+        
+        // Draw image
+        finalCtx.drawImage(info.canvas, 0, info.y, info.width, info.height);
+        
+        // Apply subtle gradient blend at edges (except first and last)
+        const index = imageInfos.indexOf(info);
+        if (index > 0) {
+          // Blend top edge with previous image
+          const gradient = finalCtx.createLinearGradient(0, info.y - 2, 0, info.y + 2);
+          gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+          gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
+          gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          finalCtx.fillStyle = gradient;
+          finalCtx.fillRect(0, info.y - 2, finalCanvas.width, 4);
+        }
+      }
+      
+      // Apply scan effect if enabled
+      if (scanEffect) {
+        applyScanEffect(finalCanvas, finalCtx);
+      }
+      
+      // Convert canvas to data URL
+      const imageDataUrl = finalCanvas.toDataURL('image/jpeg', 0.95);
+      
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: maxWidth > totalHeight ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [maxWidth, totalHeight]
+      });
+      
+      // Add image to PDF
+      pdf.addImage(imageDataUrl, 'JPEG', 0, 0, maxWidth, totalHeight);
+      
+      // Get PDF as blob
+      const pdfBlob = pdf.output('blob');
+      
+      if (pdfConvertedUrl) {
+        URL.revokeObjectURL(pdfConvertedUrl);
+      }
+      pdfConvertedBlob = pdfBlob;
+      pdfConvertedUrl = URL.createObjectURL(pdfBlob);
+      pdfConvertedSize = pdfBlob.size;
+      
+      isProcessing = false;
+    } catch (err) {
+      error = `Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      isProcessing = false;
+    }
+  }
+  
+  async function convertPdfToImage() {
+    if (!pdfFile) {
+      error = t('imageTools.pdfConvert.noPdfSelected');
+      return;
+    }
+    
+    if (!isTauriAvailable || !invokeFn) {
+      error = 'PDF to image conversion requires Tauri backend. Please run this application in Tauri environment.';
+      return;
+    }
+    
+    isProcessing = true;
+    error = '';
+    
+    try {
+      const arrayBuffer = await pdfFile.arrayBuffer();
+      const pdfBytes = new Uint8Array(arrayBuffer);
+      
+      // Call Rust backend
+      const result = await invokeFn('pdf_to_image', {
+        request: {
+          pdf_data: Array.from(pdfBytes),
+          page_number: 1, // First page
+          scale: 2.0 // 2x resolution
+        }
+      });
+      
+      // Convert result to blob
+      const imageBlob = new Blob([new Uint8Array(result.image_data)], { type: 'image/png' });
+      
+      if (pdfConvertedUrl) {
+        URL.revokeObjectURL(pdfConvertedUrl);
+      }
+      pdfConvertedBlob = imageBlob;
+      pdfConvertedUrl = URL.createObjectURL(imageBlob);
+      pdfConvertedSize = imageBlob.size;
+      
+      isProcessing = false;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      error = `PDF conversion failed: ${errorMsg}`;
+      isProcessing = false;
+    }
+  }
+  
+  async function downloadPdfConverted() {
+    if (!pdfConvertedUrl || !pdfConvertedBlob) return;
+    
+    successMessage = '';
+    error = '';
+    
+    const isPdf = pdfConversionMode === 'image-to-pdf';
+    const ext = isPdf ? 'pdf' : 'png';
+    const mimeType = isPdf ? 'application/pdf' : 'image/png';
+    
+    if (isTauriAvailable && saveFn && writeFileFn) {
+      try {
+        const originalName = (isPdf ? imageFile?.name : pdfFile?.name || 'file').split('.').slice(0, -1).join('.') || 'file';
+        const defaultName = `kairoa_${isPdf ? 'pdf' : 'image'}_${originalName}.${ext}`;
+        
+        const filePath = await saveFn({
+          defaultPath: defaultName,
+          filters: [{
+            name: isPdf ? 'PDF' : 'Image',
+            extensions: [ext]
+          }]
+        });
+        
+        if (filePath) {
+          const arrayBuffer = await pdfConvertedBlob.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          await writeFileFn(filePath, uint8Array);
+          successMessage = t('imageTools.saveSuccess');
+          setTimeout(() => {
+            successMessage = '';
+          }, 3000);
+        }
+      } catch (err) {
+        error = `${t('imageTools.saveFailed')}: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      }
+    } else {
+      const a = document.createElement('a');
+      a.href = pdfConvertedUrl;
+      const originalName = isPdf 
+        ? (pdfImageFiles.length > 0 ? pdfImageFiles[0].name.split('.').slice(0, -1).join('.') : 'images')
+        : (pdfFile?.name || 'file').split('.').slice(0, -1).join('.') || 'file';
+      a.download = `kairoa_${isPdf ? 'pdf' : 'image'}_${originalName}${pdfImageFiles.length > 1 ? `_${pdfImageFiles.length}images` : ''}.${ext}`;
+      a.click();
+      
+      successMessage = t('imageTools.downloadStarted');
+      setTimeout(() => {
+        successMessage = '';
+      }, 3000);
+    }
+  }
+  
+  // Perspective correction functions for PDF conversion
+  function autoDetectPdfCornersForImage(img: HTMLImageElement) {
+    // Use conservative corner detection - use most of the image to ensure no content is lost
+    // For now, use a large margin (2%) to ensure we capture the entire document
+    // This is safer than aggressive edge detection which might miss content
+    const margin = 0.02; // 2% margin - use 98% of the image
+    
+    pdfPerspectiveCorners = [
+      { x: margin, y: margin },                    // top-left
+      { x: 1 - margin, y: margin },                // top-right
+      { x: 1 - margin, y: 1 - margin },            // bottom-right
+      { x: margin, y: 1 - margin }                 // bottom-left
+    ];
+  }
+  
+  // Calculate perspective transformation matrix
+  function getPerspectiveMatrixForPdf(srcCorners: Point[], dstWidth: number, dstHeight: number): number[] {
+    // Source corners (from original image)
+    const x0 = srcCorners[0].x, y0 = srcCorners[0].y;
+    const x1 = srcCorners[1].x, y1 = srcCorners[1].y;
+    const x2 = srcCorners[2].x, y2 = srcCorners[2].y;
+    const x3 = srcCorners[3].x, y3 = srcCorners[3].y;
+    
+    // Destination corners (rectangular output)
+    const X0 = 0, Y0 = 0;
+    const X1 = dstWidth, Y1 = 0;
+    const X2 = dstWidth, Y2 = dstHeight;
+    const X3 = 0, Y3 = dstHeight;
+    
+    // Calculate perspective transformation matrix using direct linear transformation
+    // This solves the system: [x y 1 0 0 0 -x'X -x'Y] [a] = [x']
+    //                        [0 0 0 x y 1 -y'X -y'Y] [b]   [y']
+    
+    const A = [
+      [x0, y0, 1, 0, 0, 0, -x0*X0, -y0*X0],
+      [0, 0, 0, x0, y0, 1, -x0*Y0, -y0*Y0],
+      [x1, y1, 1, 0, 0, 0, -x1*X1, -y1*X1],
+      [0, 0, 0, x1, y1, 1, -x1*Y1, -y1*Y1],
+      [x2, y2, 1, 0, 0, 0, -x2*X2, -y2*X2],
+      [0, 0, 0, x2, y2, 1, -x2*Y2, -y2*Y2],
+      [x3, y3, 1, 0, 0, 0, -x3*X3, -y3*X3],
+      [0, 0, 0, x3, y3, 1, -x3*Y3, -y3*Y3]
+    ];
+    
+    const b = [X0, Y0, X1, Y1, X2, Y2, X3, Y3];
+    
+    // Solve using Gaussian elimination (simplified)
+    // For production, use a proper matrix library
+    const matrix = solveLinearSystem(A, b);
+    
+    return [
+      matrix[0], matrix[3], matrix[6],
+      matrix[1], matrix[4], matrix[7],
+      matrix[2], matrix[5], 1
+    ];
+  }
+  
+  function solveLinearSystem(A: number[][], b: number[]): number[] {
+    // Simplified Gaussian elimination
+    // For a more robust solution, use a proper matrix library
+    const n = A.length;
+    const augmented = A.map((row, i) => [...row, b[i]]);
+    
+    // Forward elimination
+    for (let i = 0; i < n; i++) {
+      // Find pivot
+      let maxRow = i;
+      for (let k = i + 1; k < n; k++) {
+        if (Math.abs(augmented[k][i]) > Math.abs(augmented[maxRow][i])) {
+          maxRow = k;
+        }
+      }
+      [augmented[i], augmented[maxRow]] = [augmented[maxRow], augmented[i]];
+      
+      // Make all rows below this one 0 in current column
+      for (let k = i + 1; k < n; k++) {
+        const factor = augmented[k][i] / augmented[i][i];
+        for (let j = i; j < n + 1; j++) {
+          augmented[k][j] -= factor * augmented[i][j];
+        }
+      }
+    }
+    
+    // Back substitution
+    const x = new Array(n).fill(0);
+    for (let i = n - 1; i >= 0; i--) {
+      x[i] = augmented[i][n];
+      for (let j = i + 1; j < n; j++) {
+        x[i] -= augmented[i][j] * x[j];
+      }
+      x[i] /= augmented[i][i];
+    }
+    
+    return x;
+  }
+  
+  // Apply perspective correction to an image for PDF conversion
+  // Uses reverse mapping: for each output pixel, find corresponding source pixel
+  // This ensures ALL source content is preserved
+  async function applyPerspectiveCorrectionToImage(img: HTMLImageElement): Promise<HTMLCanvasElement> {
+    // Calculate source corners in pixel coordinates
+    const srcCorners = pdfPerspectiveCorners.map(corner => ({
+      x: corner.x * img.width,
+      y: corner.y * img.height
+    }));
+    
+    // Calculate output dimensions based on corner distances (the corrected rectangle size)
+    const width1 = Math.sqrt(
+      Math.pow(srcCorners[1].x - srcCorners[0].x, 2) + 
+      Math.pow(srcCorners[1].y - srcCorners[0].y, 2)
+    );
+    const width2 = Math.sqrt(
+      Math.pow(srcCorners[2].x - srcCorners[3].x, 2) + 
+      Math.pow(srcCorners[2].y - srcCorners[3].y, 2)
+    );
+    const height1 = Math.sqrt(
+      Math.pow(srcCorners[3].x - srcCorners[0].x, 2) + 
+      Math.pow(srcCorners[3].y - srcCorners[0].y, 2)
+    );
+    const height2 = Math.sqrt(
+      Math.pow(srcCorners[2].x - srcCorners[1].x, 2) + 
+      Math.pow(srcCorners[2].y - srcCorners[1].y, 2)
+    );
+    
+    // Use average dimensions for more stable results
+    const outputWidth = (width1 + width2) / 2;
+    const outputHeight = (height1 + height2) / 2;
+    
+    // CRITICAL: Ensure output is at least as large as the original image
+    // This guarantees no content is cropped
+    const finalWidth = Math.max(outputWidth, img.width);
+    const finalHeight = Math.max(outputHeight, img.height);
+    
+    // Check if output dimensions are valid
+    if (finalWidth <= 0 || finalHeight <= 0 || !isFinite(finalWidth) || !isFinite(finalHeight)) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Failed to get canvas context');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      return canvas;
+    }
+    
+    // Create output canvas
+    const outputCanvas = document.createElement('canvas');
+    const outputCtx = outputCanvas.getContext('2d');
+    
+    if (!outputCtx) {
+      throw new Error('Failed to get canvas context');
+    }
+    
+    const roundedWidth = Math.round(finalWidth);
+    const roundedHeight = Math.round(finalHeight);
+    
+    outputCanvas.width = roundedWidth;
+    outputCanvas.height = roundedHeight;
+    
+    // Fill with white background
+    outputCtx.fillStyle = '#FFFFFF';
+    outputCtx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
+    
+    // Create source canvas
+    const srcCanvas = document.createElement('canvas');
+    const srcCtx = srcCanvas.getContext('2d');
+    if (!srcCtx) throw new Error('Failed to create source canvas');
+    srcCanvas.width = img.width;
+    srcCanvas.height = img.height;
+    srcCtx.drawImage(img, 0, 0);
+    const srcData = srcCtx.getImageData(0, 0, img.width, img.height);
+    
+    // Apply perspective transformation using reverse mapping
+    const dstData = outputCtx.createImageData(roundedWidth, roundedHeight);
+    
+    // For each pixel in output, find corresponding pixel in source using reverse mapping
+    for (let y = 0; y < roundedHeight; y++) {
+      for (let x = 0; x < roundedWidth; x++) {
+        // Normalized coordinates in output space (0-1)
+        const u = x / roundedWidth;
+        const v = y / roundedHeight;
+        
+        // Map from output rectangle to source quadrilateral using bilinear interpolation
+        // Top edge: interpolate between top-left and top-right corners
+        const topX = srcCorners[0].x + (srcCorners[1].x - srcCorners[0].x) * u;
+        const topY = srcCorners[0].y + (srcCorners[1].y - srcCorners[0].y) * u;
+        
+        // Bottom edge: interpolate between bottom-left and bottom-right corners
+        const bottomX = srcCorners[3].x + (srcCorners[2].x - srcCorners[3].x) * u;
+        const bottomY = srcCorners[3].y + (srcCorners[2].y - srcCorners[3].y) * u;
+        
+        // Interpolate vertically between top and bottom edges
+        const srcX = topX + (bottomX - topX) * v;
+        const srcY = topY + (bottomY - topY) * v;
+        
+        // Clamp source coordinates to image bounds
+        const clampedSrcX = Math.max(0, Math.min(img.width - 1, srcX));
+        const clampedSrcY = Math.max(0, Math.min(img.height - 1, srcY));
+        
+        // Sample from source image using bilinear interpolation
+        const x1 = Math.floor(clampedSrcX);
+        const y1 = Math.floor(clampedSrcY);
+        const x2 = Math.min(x1 + 1, img.width - 1);
+        const y2 = Math.min(y1 + 1, img.height - 1);
+        
+        const fx = clampedSrcX - x1;
+        const fy = clampedSrcY - y1;
+        
+        const getPixel = (px: number, py: number) => {
+          const idx = (py * img.width + px) * 4;
+          return {
+            r: srcData.data[idx],
+            g: srcData.data[idx + 1],
+            b: srcData.data[idx + 2],
+            a: srcData.data[idx + 3]
+          };
+        };
+        
+        const p11 = getPixel(x1, y1);
+        const p21 = getPixel(x2, y1);
+        const p12 = getPixel(x1, y2);
+        const p22 = getPixel(x2, y2);
+        
+        // Bilinear interpolation
+        const r = Math.round(
+          p11.r * (1 - fx) * (1 - fy) +
+          p21.r * fx * (1 - fy) +
+          p12.r * (1 - fx) * fy +
+          p22.r * fx * fy
+        );
+        const g = Math.round(
+          p11.g * (1 - fx) * (1 - fy) +
+          p21.g * fx * (1 - fy) +
+          p12.g * (1 - fx) * fy +
+          p22.g * fx * fy
+        );
+        const b = Math.round(
+          p11.b * (1 - fx) * (1 - fy) +
+          p21.b * fx * (1 - fy) +
+          p12.b * (1 - fx) * fy +
+          p22.b * fx * fy
+        );
+        
+        const dstIdx = (y * roundedWidth + x) * 4;
+        dstData.data[dstIdx] = r;
+        dstData.data[dstIdx + 1] = g;
+        dstData.data[dstIdx + 2] = b;
+        dstData.data[dstIdx + 3] = 255;
+      }
+    }
+    
+    outputCtx.putImageData(dstData, 0, 0);
+    return outputCanvas;
+  }
+  
+  async function applyPerspectiveCorrection() {
+    if (!imageFile || !imageUrl) {
+      error = t('imageTools.noImageSelected');
+      return;
+    }
+    
+    isProcessing = true;
+    error = '';
+    
+    try {
+      const img = new Image();
+      img.src = imageUrl;
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+      
+      // Calculate output dimensions based on corner positions
+      const srcCorners = perspectiveCorners.map(corner => ({
+        x: corner.x * img.width,
+        y: corner.y * img.height
+      }));
+      
+      // Calculate output width and height from corner positions
+      const width1 = Math.sqrt(
+        Math.pow(srcCorners[1].x - srcCorners[0].x, 2) + 
+        Math.pow(srcCorners[1].y - srcCorners[0].y, 2)
+      );
+      const width2 = Math.sqrt(
+        Math.pow(srcCorners[2].x - srcCorners[3].x, 2) + 
+        Math.pow(srcCorners[2].y - srcCorners[3].y, 2)
+      );
+      const height1 = Math.sqrt(
+        Math.pow(srcCorners[3].x - srcCorners[0].x, 2) + 
+        Math.pow(srcCorners[3].y - srcCorners[0].y, 2)
+      );
+      const height2 = Math.sqrt(
+        Math.pow(srcCorners[2].x - srcCorners[1].x, 2) + 
+        Math.pow(srcCorners[2].y - srcCorners[1].y, 2)
+      );
+      
+      const outputWidth = Math.max(width1, width2);
+      const outputHeight = Math.max(height1, height2);
+      
+      // Create output canvas
+      const outputCanvas = document.createElement('canvas');
+      const outputCtx = outputCanvas.getContext('2d');
+      
+      if (!outputCtx) {
+        throw new Error('Failed to get canvas context');
+      }
+      
+      outputCanvas.width = outputWidth;
+      outputCanvas.height = outputHeight;
+      
+      // Fill with white background
+      outputCtx.fillStyle = '#FFFFFF';
+      outputCtx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
+      
+      // Use canvas transform for perspective correction
+      // Calculate transformation matrix
+      const matrix = getPerspectiveMatrix(
+        perspectiveCorners,
+        outputWidth,
+        outputHeight
+      );
+      
+      // Create source canvas once
+      const srcCanvas = document.createElement('canvas');
+      const srcCtx = srcCanvas.getContext('2d');
+      if (!srcCtx) throw new Error('Failed to create source canvas');
+      srcCanvas.width = img.width;
+      srcCanvas.height = img.height;
+      srcCtx.drawImage(img, 0, 0);
+      const srcData = srcCtx.getImageData(0, 0, img.width, img.height);
+      
+      // Apply perspective transformation using manual pixel mapping
+      const dstData = outputCtx.createImageData(outputWidth, outputHeight);
+      
+      // For each pixel in output, find corresponding pixel in source
+      for (let y = 0; y < outputHeight; y++) {
+        for (let x = 0; x < outputWidth; x++) {
+          // Inverse perspective transformation
+          const denom = matrix[6] * x + matrix[7] * y + matrix[8];
+          if (Math.abs(denom) < 0.0001) continue;
+          
+          const srcX = (matrix[0] * x + matrix[1] * y + matrix[2]) / denom;
+          const srcY = (matrix[3] * x + matrix[4] * y + matrix[5]) / denom;
+          
+          if (srcX >= 0 && srcX < img.width && srcY >= 0 && srcY < img.height) {
+            // Sample from source image using bilinear interpolation
+            const x1 = Math.floor(srcX);
+            const y1 = Math.floor(srcY);
+            const x2 = Math.min(x1 + 1, img.width - 1);
+            const y2 = Math.min(y1 + 1, img.height - 1);
+            
+            const fx = srcX - x1;
+            const fy = srcY - y1;
+            
+            const getPixel = (px: number, py: number) => {
+              const idx = (py * img.width + px) * 4;
+              return {
+                r: srcData.data[idx],
+                g: srcData.data[idx + 1],
+                b: srcData.data[idx + 2],
+                a: srcData.data[idx + 3]
+              };
+            };
+            
+            const p11 = getPixel(x1, y1);
+            const p21 = getPixel(x2, y1);
+            const p12 = getPixel(x1, y2);
+            const p22 = getPixel(x2, y2);
+            
+            // Bilinear interpolation
+            const r = Math.round(
+              p11.r * (1 - fx) * (1 - fy) +
+              p21.r * fx * (1 - fy) +
+              p12.r * (1 - fx) * fy +
+              p22.r * fx * fy
+            );
+            const g = Math.round(
+              p11.g * (1 - fx) * (1 - fy) +
+              p21.g * fx * (1 - fy) +
+              p12.g * (1 - fx) * fy +
+              p22.g * fx * fy
+            );
+            const b = Math.round(
+              p11.b * (1 - fx) * (1 - fy) +
+              p21.b * fx * (1 - fy) +
+              p12.b * (1 - fx) * fy +
+              p22.b * fx * fy
+            );
+            
+            const dstIdx = (y * outputWidth + x) * 4;
+            dstData.data[dstIdx] = r;
+            dstData.data[dstIdx + 1] = g;
+            dstData.data[dstIdx + 2] = b;
+            dstData.data[dstIdx + 3] = 255;
+          }
+        }
+      }
+      
+      outputCtx.putImageData(dstData, 0, 0);
+      
+      // Convert to blob
+      outputCanvas.toBlob((blob) => {
+        if (blob) {
+          if (perspectiveImageUrl) {
+            URL.revokeObjectURL(perspectiveImageUrl);
+          }
+          perspectiveImageBlob = blob;
+          perspectiveImageUrl = URL.createObjectURL(blob);
+          perspectiveSize = blob.size;
+        }
+        isProcessing = false;
+      }, 'image/png');
+      
+    } catch (err) {
+      error = `Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      isProcessing = false;
+    }
+  }
+  
+  async function downloadPerspectiveImage() {
+    if (!perspectiveImageUrl || !perspectiveImageBlob) return;
+    
+    successMessage = '';
+    error = '';
+    
+    if (isTauriAvailable && saveFn && writeFileFn) {
+      try {
+        const originalName = imageFile?.name.split('.').slice(0, -1).join('.') || 'image';
+        const defaultName = `kairoa_perspective_${originalName}.png`;
+        
+        const filePath = await saveFn({
+          defaultPath: defaultName,
+          filters: [{
+            name: 'Image',
+            extensions: ['png']
+          }]
+        });
+        
+        if (filePath) {
+          const arrayBuffer = await perspectiveImageBlob.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          await writeFileFn(filePath, uint8Array);
+          successMessage = t('imageTools.saveSuccess');
+          setTimeout(() => {
+            successMessage = '';
+          }, 3000);
+        }
+      } catch (err) {
+        error = `${t('imageTools.saveFailed')}: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      }
+    } else {
+      const a = document.createElement('a');
+      a.href = perspectiveImageUrl;
+      const originalName = imageFile?.name.split('.').slice(0, -1).join('.') || 'image';
+      a.download = `kairoa_perspective_${originalName}.png`;
+      a.click();
+      
+      successMessage = t('imageTools.downloadStarted');
+      setTimeout(() => {
+        successMessage = '';
+      }, 3000);
+    }
+  }
+  
+  function handlePdfFileSelect(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    
+    if (file) {
+      // Check both file type and extension (Tauri may not provide file.type)
+      const fileName = file.name.toLowerCase();
+      const isPdf = file.type === 'application/pdf' || fileName.endsWith('.pdf');
+      
+      if (!isPdf) {
+        error = t('imageTools.pdfConvert.invalidPdfType');
+        target.value = '';
+        return;
+      }
+      
+      pdfFile = file;
+      error = '';
+      
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+      pdfUrl = URL.createObjectURL(file);
+      
+      if (pdfConvertedUrl) {
+        URL.revokeObjectURL(pdfConvertedUrl);
+        pdfConvertedUrl = '';
+        pdfConvertedBlob = null;
+        pdfConvertedSize = 0;
+      }
+    }
+  }
+  
   async function downloadScaledImage() {
     if (!processedImageUrl) return;
     
@@ -1321,6 +2324,17 @@
           >
             {t('imageTools.transparent.title')}
             {#if toolType === 'transparent'}
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
+            {/if}
+          </button>
+          <button
+            onclick={() => switchToolType('pdf-convert')}
+            class="px-4 py-2 relative transition-colors font-medium {toolType === 'pdf-convert'
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          >
+            {t('imageTools.pdfConvert.title')}
+            {#if toolType === 'pdf-convert'}
               <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
             {/if}
           </button>
@@ -2335,5 +3349,304 @@
         {/if}
       </div>
     {/if}
+
+    <!-- PDF Convert Tool -->
+    {#if toolType === 'pdf-convert'}
+      <div 
+        class="flex-1 flex flex-col space-y-4 min-h-0 overflow-y-auto transition-all duration-200 {isDragging ? 'ring-2 ring-primary-500 dark:ring-primary-400 ring-offset-2 bg-primary-50/50 dark:bg-primary-900/20' : ''}"
+        ondrop={(e) => { e.stopPropagation(); handleDrop(e); }}
+        ondragover={(e) => { e.stopPropagation(); handleDragOver(e); }}
+        ondragenter={(e) => { e.stopPropagation(); handleDragEnter(e); }}
+        ondragleave={(e) => { e.stopPropagation(); handleDragLeave(e); }}
+      >
+        <!-- File Upload Input -->
+        <input
+          type="file"
+          id="image-upload-pdf"
+          accept={pdfConversionMode === 'image-to-pdf' ? 'image/*' : 'application/pdf'}
+          multiple={pdfConversionMode === 'image-to-pdf'}
+          onchange={handleFileSelect}
+          class="hidden"
+        />
+        
+        <!-- 模式选择区域（始终可见） -->
+        <div class="mb-4 w-full">
+          <div class="flex gap-3 w-full">
+            <button
+              onclick={() => {
+                pdfConversionMode = 'image-to-pdf';
+                clearImage();
+              }}
+              class="flex-1 px-6 py-4 text-base font-medium rounded-lg border transition-all {pdfConversionMode === 'image-to-pdf' ? 'bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'}"
+            >
+              {t('imageTools.pdfConvert.imageToPdf')}
+            </button>
+            <button
+              onclick={() => {
+                pdfConversionMode = 'pdf-to-image';
+                clearImage();
+              }}
+              class="flex-1 px-6 py-4 text-base font-medium rounded-lg border transition-all {pdfConversionMode === 'pdf-to-image' ? 'bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'}"
+            >
+              {t('imageTools.pdfConvert.pdfToImage')}
+            </button>
+          </div>
+        </div>
+
+        <!-- 文件上传区域和内容 -->
+        <div class="flex-1 flex flex-col min-h-0">
+          {#if (pdfConversionMode === 'image-to-pdf' && pdfImageFiles.length === 0) || (pdfConversionMode === 'pdf-to-image' && !pdfUrl)}
+            <!-- 空状态：显示上传区域 -->
+            <div class="flex-1 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 hover:border-primary-500 dark:hover:border-primary-400 transition-colors bg-gray-50 dark:bg-gray-800/50">
+              <div
+                role="button"
+                tabindex="0"
+                class="text-center cursor-pointer"
+                onclick={() => document.getElementById('image-upload-pdf')?.click()}
+                onkeydown={(e) => e.key === 'Enter' && document.getElementById('image-upload-pdf')?.click()}
+              >
+                <Upload class="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4 mx-auto" />
+                <p class="text-gray-600 dark:text-gray-400 mb-2">
+                  {pdfConversionMode === 'image-to-pdf' ? t('imageTools.dragDropImage') : t('imageTools.pdfConvert.dragDropPdf')}
+                </p>
+                <p class="text-sm text-gray-500 dark:text-gray-500">
+                  {pdfConversionMode === 'image-to-pdf' ? t('imageTools.pdfConvert.multipleImagesHint') : t('imageTools.pdfConvert.supportedPdfFormats')}
+                </p>
+              </div>
+            </div>
+          {:else}
+            <!-- 有文件：显示控制面板和预览 -->
+            <div class="w-full max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
+              <!-- Controls -->
+              <div class="space-y-4">
+                
+                {#if pdfConversionMode === 'image-to-pdf'}
+                  <!-- Auto-correct perspective -->
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        bind:checked={autoDetectPdfCorners}
+                        id="auto-correct-perspective"
+                        class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"
+                      />
+                      <label for="auto-correct-perspective" class="text-sm text-gray-700 dark:text-gray-300">
+                        {t('imageTools.pdfConvert.autoCorrectPerspective')}
+                      </label>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                      {t('imageTools.pdfConvert.autoCorrectPerspectiveHint')}
+                    </p>
+                  </div>
+                  
+                  <!-- Scan Effect Toggle -->
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        bind:checked={scanEffect}
+                        id="scan-effect"
+                        class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"
+                      />
+                      <label for="scan-effect" class="text-sm text-gray-700 dark:text-gray-300">
+                        {t('imageTools.pdfConvert.scanEffect')}
+                      </label>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                      {t('imageTools.pdfConvert.scanEffectHint')}
+                    </p>
+                  </div>
+                  
+                  <!-- Action Buttons -->
+                  <div class="space-y-2">
+                    <button
+                      onclick={convertImageToPdf}
+                      disabled={isProcessing || pdfImageFiles.length === 0}
+                      class="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      {isProcessing ? t('imageTools.processing') : t('imageTools.pdfConvert.convert')}
+                    </button>
+                    {#if pdfConvertedUrl}
+                      <button
+                        onclick={downloadPdfConverted}
+                        class="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
+                      >
+                        <Download class="w-4 h-4" />
+                        {t('imageTools.download')}
+                      </button>
+                    {/if}
+                    <button
+                      onclick={clearImage}
+                      class="btn-secondary w-full text-sm"
+                    >
+                      {t('imageTools.clear')}
+                    </button>
+                  </div>
+                {:else}
+                  <!-- Action Buttons for PDF to Image -->
+                  <div class="space-y-2">
+                    <button
+                      onclick={convertPdfToImage}
+                      disabled={isProcessing || !pdfFile}
+                      class="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      {isProcessing ? t('imageTools.processing') : t('imageTools.pdfConvert.convert')}
+                    </button>
+                    {#if pdfConvertedUrl}
+                      <button
+                        onclick={downloadPdfConverted}
+                        class="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
+                      >
+                        <Download class="w-4 h-4" />
+                        {t('imageTools.download')}
+                      </button>
+                    {/if}
+                    <button
+                      onclick={clearImage}
+                      class="btn-secondary w-full text-sm"
+                    >
+                      {t('imageTools.clear')}
+                    </button>
+                  </div>
+                {/if}
+              </div>
+              
+              <!-- Preview Area -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {#if pdfConversionMode === 'image-to-pdf'}
+                  <!-- Original Images -->
+                  <div class="flex flex-col">
+                    <div class="flex items-center justify-between mb-2">
+                      <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('imageTools.original')} {pdfImageFiles.length > 1 ? `(${pdfImageFiles.length})` : ''}
+                      </h3>
+                      {#if originalSize > 0}
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                          {(originalSize / 1024).toFixed(2)} KB
+                        </div>
+                      {/if}
+                    </div>
+                    <div 
+                      class="flex-1 border rounded-lg overflow-y-auto flex flex-col items-center gap-2 p-2 transition-all duration-200 {isDragging ? 'border-primary-500 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/30 border-2' : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800'}"
+                      ondrop={handleDrop}
+                      ondragover={handleDragOver}
+                      ondragenter={handleDragEnter}
+                      ondragleave={handleDragLeave}
+                    >
+                      {#each pdfImageUrls as url, index}
+                        <div class="w-full flex items-center gap-2 p-2 bg-white dark:bg-gray-700 rounded">
+                          <span class="text-xs text-gray-500 dark:text-gray-400 min-w-[40px]">#{index + 1}</span>
+                          <img src={url} alt="Image {index + 1}" class="max-w-full max-h-32 object-contain pointer-events-none" />
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
+                  
+                  <!-- PDF Preview -->
+                  <div class="flex flex-col">
+                    <div class="flex items-center justify-between mb-2">
+                      <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('imageTools.pdfConvert.pdf')}
+                      </h3>
+                      {#if pdfConvertedSize > 0}
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                          {(pdfConvertedSize / 1024).toFixed(2)} KB
+                        </div>
+                      {/if}
+                    </div>
+                    <div 
+                      class="flex-1 border rounded-lg overflow-hidden flex items-center justify-center transition-all duration-200 {isDragging ? 'border-primary-500 dark:border-primary-400 border-2' : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800'}"
+                      ondrop={handleDrop}
+                      ondragover={handleDragOver}
+                      ondragenter={handleDragEnter}
+                      ondragleave={handleDragLeave}
+                    >
+                      {#if pdfConvertedUrl}
+                        <iframe src={pdfConvertedUrl} class="w-full h-full min-h-[400px]" frameborder="0"></iframe>
+                      {:else}
+                        <p class="text-gray-400 dark:text-gray-500 text-sm text-center px-4">
+                          {t('imageTools.pdfConvert.previewPlaceholder')}
+                        </p>
+                      {/if}
+                    </div>
+                  </div>
+                {:else}
+                  <!-- PDF File -->
+                  <div class="flex flex-col">
+                    <div class="flex items-center justify-between mb-2">
+                      <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('imageTools.pdfConvert.pdf')}
+                      </h3>
+                      {#if pdfFile}
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                          {(pdfFile.size / 1024).toFixed(2)} KB
+                        </div>
+                      {/if}
+                    </div>
+                    <div 
+                      class="flex-1 border rounded-lg overflow-hidden flex items-center justify-center transition-all duration-200 {isDragging ? 'border-primary-500 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/30 border-2' : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800'}"
+                      ondrop={handleDrop}
+                      ondragover={handleDragOver}
+                      ondragenter={handleDragEnter}
+                      ondragleave={handleDragLeave}
+                    >
+                      {#if pdfUrl}
+                        <iframe src={pdfUrl} class="w-full h-full min-h-[400px]" frameborder="0"></iframe>
+                      {:else}
+                        <p class="text-gray-400 dark:text-gray-500 text-sm text-center px-4">
+                          {t('imageTools.pdfConvert.selectPdf')}
+                        </p>
+                      {/if}
+                    </div>
+                  </div>
+                  
+                  <!-- Converted Image -->
+                  <div class="flex flex-col">
+                    <div class="flex items-center justify-between mb-2">
+                      <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('imageTools.processed')}
+                      </h3>
+                      {#if pdfConvertedSize > 0}
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                          {(pdfConvertedSize / 1024).toFixed(2)} KB
+                        </div>
+                      {/if}
+                    </div>
+                    <div 
+                      class="flex-1 border rounded-lg overflow-hidden flex items-center justify-center transition-all duration-200 {isDragging ? 'border-primary-500 dark:border-primary-400 border-2' : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800'}"
+                      ondrop={handleDrop}
+                      ondragover={handleDragOver}
+                      ondragenter={handleDragEnter}
+                      ondragleave={handleDragLeave}
+                    >
+                      {#if pdfConvertedUrl}
+                        <img src={pdfConvertedUrl} alt="Converted" class="max-w-full max-h-full object-contain pointer-events-none" />
+                      {:else}
+                        <p class="text-gray-400 dark:text-gray-500 text-sm text-center px-4">
+                          {t('imageTools.pdfConvert.previewPlaceholder')}
+                        </p>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            </div>
+          {/if}
+        </div>
+
+        {#if error}
+          <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p class="text-sm text-red-800 dark:text-red-200">{error}</p>
+          </div>
+        {/if}
+
+        {#if successMessage}
+          <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <p class="text-sm text-green-800 dark:text-green-200">{successMessage}</p>
+          </div>
+        {/if}
+      </div>
+    {/if}
+
   </div>
 </div>

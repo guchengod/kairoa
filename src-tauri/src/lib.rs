@@ -573,7 +573,7 @@ fn compress_image(request: ImageCompressRequest) -> Result<ImageCompressResponse
         let quality = (request.quality * 100.0).round() as u8;
         let rgb_img = img.to_rgb8();
         let mut cursor = Cursor::new(&mut buffer);
-        let mut encoder = JpegEncoder::new_with_quality(&mut cursor, quality.max(1).min(100));
+        let encoder = JpegEncoder::new_with_quality(&mut cursor, quality.max(1).min(100));
         encoder
             .write_image(rgb_img.as_raw(), rgb_img.width(), rgb_img.height(), ExtendedColorType::Rgb8)
             .map_err(|e| format!("Failed to encode JPEG: {}", e))?;
@@ -664,6 +664,117 @@ fn compress_webp(img: &DynamicImage, quality: f32, original_size: usize, origina
     })
 }
 
+// PDF to Image structures
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PdfToImageRequest {
+    pdf_data: Vec<u8>, // PDF file bytes
+    page_number: Option<u32>, // Page number (1-indexed), None for first page
+    scale: Option<f32>, // Scale factor (default: 2.0 for 2x resolution)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PdfToImageResponse {
+    image_data: Vec<u8>, // PNG image bytes
+    width: u32,
+    height: u32,
+    page_count: u32,
+}
+
+// PDF to Image command using PDFium for accurate rendering
+#[tauri::command]
+fn pdf_to_image(request: PdfToImageRequest) -> Result<PdfToImageResponse, String> {
+    use pdfium_render::prelude::*;
+    use image::ImageEncoder;
+    use std::path::PathBuf;
+    use std::io::Cursor;
+
+    // Bind to Pdfium with robust path resolution:
+    // 1) system library
+    // 2) absolute path under project `src-tauri/libs` (compile-time base)
+    // 3) paths relative to current working dir: `libs/` and `./`
+    let bindings = Pdfium::bind_to_system_library()
+        .or_else(|_| {
+            let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            let abs_candidates = [
+                manifest_dir.join("libs/libpdfium.dylib"),
+                manifest_dir.join("libs/lib/libpdfium.dylib"),
+            ];
+            for p in abs_candidates.iter() {
+                if p.exists() {
+                    return Pdfium::bind_to_library(p);
+                }
+            }
+
+            let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            let rel_candidates = [
+                cwd.join("libs/libpdfium.dylib"),
+                cwd.join("libpdfium.dylib"),
+            ];
+            for p in rel_candidates.iter() {
+                if p.exists() {
+                    return Pdfium::bind_to_library(p);
+                }
+            }
+
+            Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name())
+        })
+        .map_err(|_| "Failed to bind to Pdfium library".to_string())?;
+
+    let pdfium = Pdfium::new(bindings);
+
+    // Load document from bytes
+    let document = pdfium
+        .load_pdf_from_byte_slice(&request.pdf_data, None)
+        .map_err(|e| format!("Failed to load PDF: {:?}", e))?;
+
+    let page_count = document.pages().len() as u32;
+    let page_number = request.page_number.unwrap_or(1);
+    if page_number < 1 || page_number > page_count {
+        return Err(format!("Page {} not found. PDF has {} pages", page_number, page_count));
+    }
+
+    let page = document
+        .pages()
+        .get((page_number - 1) as u16)
+        .map_err(|_| "Failed to get page".to_string())?;
+
+    // Render with optional scale
+    let scale = request.scale.unwrap_or(2.0);
+    let render_config = PdfRenderConfig::new()
+        .scale_page_by_factor(scale as f32)
+        .render_form_data(true)
+        .render_annotations(true);
+    let dyn_image = page
+        .render_with_config(&render_config)
+        .map_err(|e| format!("Failed to render page: {:?}", e))?
+        .as_image();
+
+    let rgba8 = dyn_image.into_rgba8();
+    let (width, height) = rgba8.dimensions();
+
+    // Encode PNG
+    let mut png_buffer = Vec::new();
+    {
+        let mut cursor = Cursor::new(&mut png_buffer);
+        let encoder = image::codecs::png::PngEncoder::new(&mut cursor);
+        encoder
+            .write_image(
+                &rgba8,
+                width,
+                height,
+                image::ExtendedColorType::Rgba8,
+            )
+            .map_err(|e| format!("Failed to encode PNG: {}", e))?;
+    }
+
+    Ok(PdfToImageResponse {
+        image_data: png_buffer,
+        width,
+        height,
+        page_count,
+    })
+}
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -692,7 +803,8 @@ pub fn run() {
             verify_bcrypt,
             hash_argon2,
             verify_argon2,
-            compress_image
+            compress_image,
+            pdf_to_image
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

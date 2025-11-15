@@ -110,6 +110,25 @@ const translations = {
         highTolerance: 'Loose',
         apply: 'Remove Background',
         previewPlaceholder: 'Transparent image will appear here'
+      },
+      pdfConvert: {
+        title: 'PDF Convert',
+        conversionMode: 'Conversion Mode',
+        imageToPdf: 'Image to PDF',
+        pdfToImage: 'PDF to Image',
+        autoCorrectPerspective: 'Auto-correct perspective',
+        autoCorrectPerspectiveHint: 'Automatically correct perspective distortion for uneven photos to make them look like scanned documents',
+        scanEffect: 'Scan Effect',
+        scanEffectHint: 'Apply grayscale and contrast adjustments to simulate scanned document',
+        convert: 'Convert',
+        pdf: 'PDF',
+        dragDropPdf: 'Click to select or drag and drop a PDF file',
+        supportedPdfFormats: 'Supports PDF format',
+        multipleImagesHint: 'Supports multiple images, will be stitched vertically',
+        noPdfSelected: 'Please select a PDF file first',
+        invalidPdfType: 'Please select a valid PDF file',
+        selectPdf: 'Select PDF file',
+        previewPlaceholder: 'Converted file will appear here'
       }
     },
     hash: {
@@ -738,6 +757,25 @@ const translations = {
         highTolerance: '宽松',
         apply: '移除背景',
         previewPlaceholder: '透明图片将显示在这里'
+      },
+      pdfConvert: {
+        title: 'PDF 转换',
+        conversionMode: '转换模式',
+        imageToPdf: '图片转 PDF',
+        pdfToImage: 'PDF 转图片',
+        autoCorrectPerspective: '自动校正透视',
+        autoCorrectPerspectiveHint: '自动校正不平整照片的透视变形，使其看起来像扫描件',
+        scanEffect: '扫描效果',
+        scanEffectHint: '应用灰度和对比度调整，模拟扫描文档效果',
+        convert: '转换',
+        pdf: 'PDF',
+        dragDropPdf: '点击选择或拖拽 PDF 文件到此处',
+        supportedPdfFormats: '支持 PDF 格式',
+        multipleImagesHint: '支持多张图片，将上下拼接',
+        noPdfSelected: '请先选择 PDF 文件',
+        invalidPdfType: '请选择有效的 PDF 文件',
+        selectPdf: '选择 PDF 文件',
+        previewPlaceholder: '转换后的文件将显示在这里'
       }
     },
     hash: {

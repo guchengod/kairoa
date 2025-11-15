@@ -45,4 +45,6 @@ argon2 = "0.5"
 # Image processing
 image = "0.25"
 webp = "0.2"
+# PDF rendering
+pdfium-render = { version = "0.8", features = ["image"] }
 
