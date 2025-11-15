@@ -3,7 +3,7 @@
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
-  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal } from 'lucide-svelte';
+  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck } from 'lucide-svelte';
 
   const navItems = [
     { path: '/api-client', icon: Globe, key: 'nav.apiClient' },
@@ -73,6 +73,8 @@
     { path: '/base-converter', icon: Binary, key: 'nav.baseConverter' },
     { path: '/qr-code', icon: QrCode, key: 'nav.qrCode' },
     { path: '/chmod', icon: Terminal, key: 'nav.chmod' },
+    { path: '/keycode', icon: Keyboard, key: 'nav.keycode' },
+    { path: '/basic-auth', icon: ShieldCheck, key: 'nav.basicAuth' },
   ];
 
   // 从 localStorage 加载侧边栏状态

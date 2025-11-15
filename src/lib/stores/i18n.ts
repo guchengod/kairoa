@@ -28,7 +28,9 @@ const translations = {
       colorDesc: 'Convert between color formats (HEX, RGB, HSL)',
       baseConverterDesc: 'Convert between number bases (binary, octal, decimal, hex)',
       qrCodeDesc: 'Generate QR codes from text or URLs',
-      chmodDesc: 'Calculate and convert file permissions (chmod)'
+      chmodDesc: 'Calculate and convert file permissions (chmod)',
+      keycodeDesc: 'View keyboard key codes and event information',
+      basicAuthDesc: 'Generate HTTP Basic Authentication headers'
     },
     nav: {
       hash: 'Hash Calculator',
@@ -49,6 +51,8 @@ const translations = {
       imageTools: 'Image Tools',
       qrCode: 'QR Code Generator',
       chmod: 'Chmod Calculator',
+      keycode: 'Keycode Info',
+      basicAuth: 'Basic Auth Generator',
       settings: 'Settings'
     },
     imageTools: {
@@ -669,6 +673,48 @@ const translations = {
       example: 'Example Command',
       exampleDesc: 'Use this command to set file permissions'
     },
+    keycode: {
+      title: 'Keycode Info',
+      description: 'Press any key to see its key code, key name, and event information',
+      listening: 'Listening for keys',
+      clear: 'Clear',
+      key: 'Key',
+      code: 'Code',
+      keyCode: 'KeyCode',
+      which: 'Which',
+      location: {
+        label: 'Location',
+        standard: 'Standard',
+        left: 'Left',
+        right: 'Right',
+        numpad: 'Numpad',
+        unknown: 'Unknown'
+      },
+      modifiers: 'Modifiers',
+      altKey: 'Alt',
+      ctrlKey: 'Ctrl',
+      shiftKey: 'Shift',
+      metaKey: 'Meta (Cmd)',
+      json: 'JSON',
+      empty: '(empty)',
+      placeholder: 'Press any key to see its information'
+    },
+    basicAuth: {
+      input: 'Input',
+      username: 'Username',
+      password: 'Password',
+      usernamePlaceholder: 'Enter username',
+      passwordPlaceholder: 'Enter password',
+      clear: 'Clear',
+      output: 'Output',
+      base64: 'Base64 Encoded',
+      base64Hint: 'Base64 encoded username:password',
+      header: 'Authorization Header',
+      headerHint: 'Use this header in HTTP requests',
+      curlExample: 'cURL Example',
+      curlHint: 'Example cURL command with Basic Auth',
+      placeholder: 'Enter username and password to generate Basic Auth credentials'
+    },
     qrCode: {
       invalidLogoType: 'Please select a valid image file',
       saveSuccess: '✓ QR code saved successfully',
@@ -700,7 +746,9 @@ const translations = {
       colorDesc: '颜色格式转换（HEX、RGB、HSL）',
       baseConverterDesc: '数字进制转换（二进制、八进制、十进制、十六进制）',
       qrCodeDesc: '从文本或 URL 生成二维码',
-      chmodDesc: '计算和转换文件权限（chmod）'
+      chmodDesc: '计算和转换文件权限（chmod）',
+      keycodeDesc: '查看键盘按键代码和事件信息',
+      basicAuthDesc: '生成 HTTP Basic Authentication 认证头'
     },
     nav: {
       hash: 'Hash 计算器',
@@ -721,6 +769,8 @@ const translations = {
       imageTools: '图片处理',
       qrCode: '二维码生成器',
       chmod: 'Chmod 权限计算器',
+      keycode: '按键代码信息',
+      basicAuth: 'Basic Auth 生成器',
       settings: '设置'
     },
     imageTools: {
@@ -1341,6 +1391,48 @@ const translations = {
       invalidSymbol: '无效的符号表示。请使用 r、w、x 或 -',
       example: '示例命令',
       exampleDesc: '使用此命令设置文件权限'
+    },
+    keycode: {
+      title: '按键代码信息',
+      description: '按下任意按键查看其代码、名称和事件信息',
+      listening: '正在监听按键',
+      clear: '清空',
+      key: 'Key',
+      code: 'Code',
+      keyCode: 'KeyCode',
+      which: 'Which',
+      location: {
+        label: '位置',
+        standard: '标准',
+        left: '左侧',
+        right: '右侧',
+        numpad: '数字键盘',
+        unknown: '未知'
+      },
+      modifiers: '修饰键',
+      altKey: 'Alt',
+      ctrlKey: 'Ctrl',
+      shiftKey: 'Shift',
+      metaKey: 'Meta (Cmd)',
+      json: 'JSON',
+      empty: '（空）',
+      placeholder: '按下任意按键查看其信息'
+    },
+    basicAuth: {
+      input: '输入',
+      username: '用户名',
+      password: '密码',
+      usernamePlaceholder: '输入用户名',
+      passwordPlaceholder: '输入密码',
+      clear: '清空',
+      output: '输出',
+      base64: 'Base64 编码',
+      base64Hint: 'Base64 编码的用户名:密码',
+      header: 'Authorization 头部',
+      headerHint: '在 HTTP 请求中使用此头部',
+      curlExample: 'cURL 示例',
+      curlHint: '使用 Basic Auth 的 cURL 命令示例',
+      placeholder: '输入用户名和密码以生成 Basic Auth 凭证'
     },
     qrCode: {
       saveSuccess: '✓ 二维码保存成功',
