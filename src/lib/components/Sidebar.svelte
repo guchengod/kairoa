@@ -76,7 +76,8 @@
         { label: '格式转换', key: 'imageTools.convert.title', type: 'convert' },
         { label: '压缩', key: 'imageTools.compress.title', type: 'compress' },
         { label: '背景透明', key: 'imageTools.transparent.title', type: 'transparent' },
-        { label: 'PDF 转换', key: 'imageTools.pdfConvert.title', type: 'pdf-convert' }
+        { label: 'PDF 转换', key: 'imageTools.pdfConvert.title', type: 'pdf-convert' },
+        { label: '水印', key: 'imageTools.watermark.title', type: 'watermark' }
       ]
     },
     { path: '/crontab', icon: Calendar, key: 'nav.crontab' },

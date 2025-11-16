@@ -6,14 +6,14 @@
   import imageCompression from 'browser-image-compression';
   import { jsPDF } from 'jspdf';
   
-  type ToolType = 'rotate' | 'scale' | 'convert' | 'compress' | 'transparent' | 'pdf-convert';
+  type ToolType = 'rotate' | 'scale' | 'convert' | 'compress' | 'transparent' | 'pdf-convert' | 'watermark';
   
   let toolType = $state<ToolType>('rotate');
   
   // Check URL parameter for type
   $effect(() => {
     const typeParam = $page.url.searchParams.get('type');
-    if (typeParam === 'rotate' || typeParam === 'scale' || typeParam === 'convert' || typeParam === 'compress' || typeParam === 'transparent' || typeParam === 'pdf-convert') {
+    if (typeParam === 'rotate' || typeParam === 'scale' || typeParam === 'convert' || typeParam === 'compress' || typeParam === 'transparent' || typeParam === 'pdf-convert' || typeParam === 'watermark') {
       toolType = typeParam as ToolType;
     }
   });
@@ -80,6 +80,26 @@
   ]);
   let isDraggingPdfCorner = $state<number | null>(null);
   let autoDetectPdfCorners = $state<boolean>(true);
+  
+  // Watermark related state
+  type WatermarkType = 'text' | 'image';
+  let watermarkType = $state<WatermarkType>('text');
+  let watermarkText = $state<string>('Watermark');
+  let watermarkFontSize = $state<number>(48);
+  let watermarkColor = $state<string>('#FFFFFF');
+  let watermarkOpacity = $state<number>(0.7);
+  let watermarkPosition = $state<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center'>('bottom-right');
+  let watermarkX = $state<number>(10); // 距离边缘的像素
+  let watermarkY = $state<number>(10);
+  let watermarkImageFile = $state<File | null>(null);
+  let watermarkImageUrl = $state<string>('');
+  let watermarkImageScale = $state<number>(0.3); // 水印图片相对于原图的比例
+  let watermarkedImageUrl = $state<string>('');
+  let watermarkedImageBlob = $state<Blob | null>(null);
+  let watermarkedSize = $state<number>(0); // bytes
+  // Full screen watermark settings
+  let watermarkFullScreen = $state<boolean>(false); // 满屏水印模式
+  let watermarkSpacing = $state<number>(200); // 间隔（像素）
   
   // Tauri API
   let saveFn: ((options: any) => Promise<string | null>) | null = $state(null);
@@ -936,6 +956,12 @@
     if (transparentImageUrl) {
       URL.revokeObjectURL(transparentImageUrl);
     }
+    if (watermarkedImageUrl) {
+      URL.revokeObjectURL(watermarkedImageUrl);
+    }
+    if (watermarkImageUrl) {
+      URL.revokeObjectURL(watermarkImageUrl);
+    }
     if (pdfUrl) {
       URL.revokeObjectURL(pdfUrl);
     }
@@ -958,6 +984,13 @@
     compressedImageBlob = null;
     transparentImageUrl = '';
     transparentImageBlob = null;
+    watermarkedImageUrl = '';
+    watermarkedImageBlob = null;
+    watermarkedSize = 0;
+    watermarkImageFile = null;
+    watermarkImageUrl = '';
+    watermarkFullScreen = false;
+    watermarkSpacing = 200;
     pdfFile = null;
     pdfUrl = '';
     pdfConvertedUrl = '';
@@ -1065,6 +1098,38 @@
     if (toolType === 'scale' && imageUrl && maintainAspectRatio && originalWidth > 0 && originalHeight > 0) {
       scaleWidth = Math.round((originalWidth * scalePercentage) / 100);
       scaleHeight = Math.round((originalHeight * scalePercentage) / 100);
+    }
+  });
+  
+  // Auto-apply watermark when parameters change
+  $effect(() => {
+    if (toolType === 'watermark' && imageUrl && imageFile) {
+      // Access all watermark parameters to track their changes
+      const _ = watermarkFullScreen; // Track full screen mode changes
+      const __ = watermarkSpacing; // Track spacing changes
+      const ___ = watermarkText; // Track text changes
+      const ____ = watermarkFontSize; // Track font size changes
+      const _____ = watermarkColor; // Track color changes
+      const ______ = watermarkOpacity; // Track opacity changes
+      const _______ = watermarkType; // Track type changes
+      const ________ = watermarkImageUrl; // Track image URL changes
+      const _________ = watermarkImageScale; // Track image scale changes
+      const __________ = watermarkPosition; // Track position changes
+      const ___________ = watermarkX; // Track X offset changes
+      const ____________ = watermarkY; // Track Y offset changes
+      
+      // Check if we have valid watermark content
+      const hasValidWatermark = (watermarkType === 'text' && watermarkText.trim()) || 
+                                (watermarkType === 'image' && watermarkImageUrl);
+      
+      if (hasValidWatermark && !isProcessing) {
+        // Use a small delay to debounce rapid changes
+        const timeoutId = setTimeout(() => {
+          applyWatermark();
+        }, 300);
+        
+        return () => clearTimeout(timeoutId);
+      }
     }
   });
   
@@ -1378,6 +1443,388 @@
         successMessage = '';
       }, 3000);
     }
+  }
+  
+  // Handle watermark image file selection
+  function handleWatermarkImageSelect(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    
+    if (file && file.type.startsWith('image/')) {
+      if (watermarkImageUrl) {
+        URL.revokeObjectURL(watermarkImageUrl);
+      }
+      watermarkImageFile = file;
+      watermarkImageUrl = URL.createObjectURL(file);
+      target.value = '';
+    }
+  }
+  
+  // Apply watermark to image
+  async function applyWatermark() {
+    if (!imageFile || !imageUrl) {
+      error = t('imageTools.noImageSelected');
+      return;
+    }
+    
+    if (watermarkType === 'text' && !watermarkText.trim()) {
+      error = t('imageTools.watermark.noText');
+      return;
+    }
+    
+    if (watermarkType === 'image' && !watermarkImageUrl) {
+      error = t('imageTools.watermark.noWatermarkImage');
+      return;
+    }
+    
+    isProcessing = true;
+    error = '';
+    
+    try {
+      const img = new Image();
+      img.src = imageUrl;
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+      
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        throw new Error('Failed to get canvas context');
+      }
+      
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // Draw the original image
+      ctx.drawImage(img, 0, 0);
+      
+      // Set global alpha for watermark
+      ctx.globalAlpha = watermarkOpacity;
+      
+      if (watermarkFullScreen) {
+        // Full screen repeating watermark with one fixed at diagonal center
+        // Fixed 45 degree angle
+        const angleRad = (45 * Math.PI) / 180;
+        
+        if (watermarkType === 'text') {
+          // Text watermark
+          ctx.fillStyle = watermarkColor;
+          ctx.font = `bold ${watermarkFontSize}px Arial, sans-serif`;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          
+          const textMetrics = ctx.measureText(watermarkText);
+          const textWidth = textMetrics.width;
+          const textHeight = watermarkFontSize;
+          
+          // Calculate canvas center - this is fixed
+          const canvasCenterX = canvas.width / 2;
+          const canvasCenterY = canvas.height / 2;
+          
+          // First, draw the center watermark (fixed position)
+          const centerBaseX = canvasCenterX - textWidth / 2;
+          const centerBaseY = canvasCenterY - textHeight / 2;
+          
+          ctx.save();
+          ctx.translate(canvasCenterX, canvasCenterY);
+          ctx.rotate(angleRad);
+          ctx.translate(-canvasCenterX, -canvasCenterY);
+          ctx.fillText(watermarkText, centerBaseX, centerBaseY);
+          ctx.restore();
+          
+          // Then, draw other watermarks around the center one
+          // Calculate how many watermarks we need to cover the entire canvas
+          const maxDimension = Math.max(canvas.width, canvas.height);
+          const numCols = Math.ceil((maxDimension * 2) / watermarkSpacing) + 2;
+          const numRows = Math.ceil((maxDimension * 2) / watermarkSpacing) + 2;
+          
+          // Calculate start position relative to center
+          const startX = centerBaseX - Math.floor(numCols / 2) * watermarkSpacing;
+          const startY = centerBaseY - Math.floor(numRows / 2) * watermarkSpacing;
+          
+          for (let row = 0; row < numRows; row++) {
+            for (let col = 0; col < numCols; col++) {
+              const baseX = startX + col * watermarkSpacing;
+              const baseY = startY + row * watermarkSpacing;
+              
+              // Skip the center watermark (already drawn)
+              const textCenterX = baseX + textWidth / 2;
+              const textCenterY = baseY + textHeight / 2;
+              if (Math.abs(textCenterX - canvasCenterX) < 0.1 && Math.abs(textCenterY - canvasCenterY) < 0.1) {
+                continue;
+              }
+              
+              // Rotate around the center of the text
+              ctx.save();
+              ctx.translate(textCenterX, textCenterY);
+              ctx.rotate(angleRad);
+              ctx.translate(-textCenterX, -textCenterY);
+              
+              ctx.fillText(watermarkText, baseX, baseY);
+              ctx.restore();
+            }
+          }
+        } else {
+          // Image watermark
+          const watermarkImg = new Image();
+          watermarkImg.src = watermarkImageUrl;
+          
+          await new Promise((resolve, reject) => {
+            watermarkImg.onload = resolve;
+            watermarkImg.onerror = reject;
+          });
+          
+          // Calculate watermark size
+          const watermarkWidth = canvas.width * watermarkImageScale;
+          const watermarkHeight = (watermarkImg.height / watermarkImg.width) * watermarkWidth;
+          
+          // Calculate canvas center - this is fixed
+          const canvasCenterX = canvas.width / 2;
+          const canvasCenterY = canvas.height / 2;
+          
+          // First, draw the center watermark (fixed position)
+          const centerBaseX = canvasCenterX - watermarkWidth / 2;
+          const centerBaseY = canvasCenterY - watermarkHeight / 2;
+          
+          ctx.save();
+          ctx.translate(canvasCenterX, canvasCenterY);
+          ctx.rotate(angleRad);
+          ctx.translate(-canvasCenterX, -canvasCenterY);
+          ctx.drawImage(watermarkImg, centerBaseX, centerBaseY, watermarkWidth, watermarkHeight);
+          ctx.restore();
+          
+          // Then, draw other watermarks around the center one
+          // Calculate how many watermarks we need
+          const maxDimension = Math.max(canvas.width, canvas.height);
+          const numCols = Math.ceil((maxDimension * 2) / watermarkSpacing) + 2;
+          const numRows = Math.ceil((maxDimension * 2) / watermarkSpacing) + 2;
+          
+          // Calculate start position relative to center
+          const startX = centerBaseX - Math.floor(numCols / 2) * watermarkSpacing;
+          const startY = centerBaseY - Math.floor(numRows / 2) * watermarkSpacing;
+          
+          for (let row = 0; row < numRows; row++) {
+            for (let col = 0; col < numCols; col++) {
+              const baseX = startX + col * watermarkSpacing;
+              const baseY = startY + row * watermarkSpacing;
+              
+              // Skip the center watermark (already drawn)
+              const imgCenterX = baseX + watermarkWidth / 2;
+              const imgCenterY = baseY + watermarkHeight / 2;
+              if (Math.abs(imgCenterX - canvasCenterX) < 0.1 && Math.abs(imgCenterY - canvasCenterY) < 0.1) {
+                continue;
+              }
+              
+              // Rotate around the center of the image
+              ctx.save();
+              ctx.translate(imgCenterX, imgCenterY);
+              ctx.rotate(angleRad);
+              ctx.translate(-imgCenterX, -imgCenterY);
+              
+              ctx.drawImage(watermarkImg, baseX, baseY, watermarkWidth, watermarkHeight);
+              ctx.restore();
+            }
+          }
+        }
+      } else {
+        // Single watermark mode
+        if (watermarkType === 'text') {
+          // Text watermark
+          ctx.fillStyle = watermarkColor;
+          ctx.font = `bold ${watermarkFontSize}px Arial, sans-serif`;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          
+          // Calculate position
+          let x = 0;
+          let y = 0;
+          const textMetrics = ctx.measureText(watermarkText);
+          const textWidth = textMetrics.width;
+          const textHeight = watermarkFontSize;
+          
+          switch (watermarkPosition) {
+            case 'top-left':
+              x = watermarkX;
+              y = watermarkY;
+              break;
+            case 'top-right':
+              x = canvas.width - textWidth - watermarkX;
+              y = watermarkY;
+              break;
+            case 'bottom-left':
+              x = watermarkX;
+              y = canvas.height - textHeight - watermarkY;
+              break;
+            case 'bottom-right':
+              x = canvas.width - textWidth - watermarkX;
+              y = canvas.height - textHeight - watermarkY;
+              break;
+            case 'center':
+              x = (canvas.width - textWidth) / 2;
+              y = (canvas.height - textHeight) / 2;
+              break;
+          }
+          
+          ctx.fillText(watermarkText, x, y);
+        } else {
+          // Image watermark
+          const watermarkImg = new Image();
+          watermarkImg.src = watermarkImageUrl;
+          
+          await new Promise((resolve, reject) => {
+            watermarkImg.onload = resolve;
+            watermarkImg.onerror = reject;
+          });
+          
+          // Calculate watermark size
+          const watermarkWidth = canvas.width * watermarkImageScale;
+          const watermarkHeight = (watermarkImg.height / watermarkImg.width) * watermarkWidth;
+          
+          // Calculate position
+          let x = 0;
+          let y = 0;
+          
+          switch (watermarkPosition) {
+            case 'top-left':
+              x = watermarkX;
+              y = watermarkY;
+              break;
+            case 'top-right':
+              x = canvas.width - watermarkWidth - watermarkX;
+              y = watermarkY;
+              break;
+            case 'bottom-left':
+              x = watermarkX;
+              y = canvas.height - watermarkHeight - watermarkY;
+              break;
+            case 'bottom-right':
+              x = canvas.width - watermarkWidth - watermarkX;
+              y = canvas.height - watermarkHeight - watermarkY;
+              break;
+            case 'center':
+              x = (canvas.width - watermarkWidth) / 2;
+              y = (canvas.height - watermarkHeight) / 2;
+              break;
+          }
+          
+          ctx.drawImage(watermarkImg, x, y, watermarkWidth, watermarkHeight);
+        }
+      }
+      
+      // Reset global alpha
+      ctx.globalAlpha = 1.0;
+      
+      // Convert to blob
+      canvas.toBlob((blob) => {
+        if (blob) {
+          if (watermarkedImageUrl) {
+            URL.revokeObjectURL(watermarkedImageUrl);
+          }
+          watermarkedImageBlob = blob;
+          watermarkedImageUrl = URL.createObjectURL(blob);
+          watermarkedSize = blob.size;
+        }
+        isProcessing = false;
+      }, 'image/png');
+      
+    } catch (err) {
+      error = `Error applying watermark: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      isProcessing = false;
+    }
+  }
+  
+  async function downloadWatermarked() {
+    if (!watermarkedImageUrl || !watermarkedImageBlob) return;
+    
+    successMessage = '';
+    error = '';
+    
+    if (isTauriAvailable && saveFn && writeFileFn) {
+      try {
+        const originalName = imageFile?.name.split('.').slice(0, -1).join('.') || 'image';
+        const defaultName = `kairoa_watermarked_${originalName}.png`;
+        
+        const filePath = await saveFn({
+          defaultPath: defaultName,
+          filters: [{
+            name: 'Image',
+            extensions: ['png']
+          }]
+        });
+        
+        if (filePath) {
+          const arrayBuffer = await watermarkedImageBlob.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          await writeFileFn(filePath, uint8Array);
+          successMessage = t('imageTools.saveSuccess');
+          setTimeout(() => {
+            successMessage = '';
+          }, 3000);
+        }
+      } catch (err) {
+        error = `${t('imageTools.saveFailed')}: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      }
+    } else {
+      const a = document.createElement('a');
+      a.href = watermarkedImageUrl;
+      const originalName = imageFile?.name.split('.').slice(0, -1).join('.') || 'image';
+      a.download = `kairoa_watermarked_${originalName}.png`;
+      a.click();
+      
+      successMessage = t('imageTools.downloadStarted');
+      setTimeout(() => {
+        successMessage = '';
+      }, 3000);
+    }
+  }
+  
+  function clearWatermark() {
+    // Clear watermarked image
+    if (watermarkedImageUrl) {
+      URL.revokeObjectURL(watermarkedImageUrl);
+    }
+    watermarkedImageUrl = '';
+    watermarkedImageBlob = null;
+    watermarkedSize = 0;
+    
+    // Clear original image
+    if (imageUrl) {
+      URL.revokeObjectURL(imageUrl);
+    }
+    imageFile = null;
+    imageUrl = '';
+    
+    // Clear watermark image if exists
+    if (watermarkImageUrl) {
+      URL.revokeObjectURL(watermarkImageUrl);
+    }
+    watermarkImageFile = null;
+    watermarkImageUrl = '';
+    
+    // Reset watermark settings
+    watermarkFullScreen = false;
+    watermarkAngle = 45;
+    watermarkSpacingX = 200;
+    watermarkSpacingY = 150;
+    
+    // Clear input
+    if (browser) {
+      const input = document.getElementById('image-upload-watermark') as HTMLInputElement;
+      if (input) {
+        input.value = '';
+      }
+      const watermarkInput = document.getElementById('watermark-image-upload') as HTMLInputElement;
+      if (watermarkInput) {
+        watermarkInput.value = '';
+      }
+    }
+    
+    error = '';
+    successMessage = '';
   }
   
   // PDF conversion functions
@@ -2335,6 +2782,17 @@
           >
             {t('imageTools.pdfConvert.title')}
             {#if toolType === 'pdf-convert'}
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
+            {/if}
+          </button>
+          <button
+            onclick={() => switchToolType('watermark')}
+            class="px-4 py-2 relative transition-colors font-medium {toolType === 'watermark'
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          >
+            {t('imageTools.watermark.title')}
+            {#if toolType === 'watermark'}
               <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
             {/if}
           </button>
@@ -3633,6 +4091,357 @@
             </div>
           {/if}
         </div>
+
+        {#if error}
+          <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p class="text-sm text-red-800 dark:text-red-200">{error}</p>
+          </div>
+        {/if}
+
+        {#if successMessage}
+          <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <p class="text-sm text-green-800 dark:text-green-200">{successMessage}</p>
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    <!-- Watermark Tool -->
+    {#if toolType === 'watermark'}
+      <div 
+        class="flex-1 flex flex-col space-y-4 min-h-0 overflow-y-auto transition-all duration-200 {isDragging ? 'ring-2 ring-primary-500 dark:ring-primary-400 ring-offset-2 bg-primary-50/50 dark:bg-primary-900/20' : ''}"
+        ondrop={(e) => { e.stopPropagation(); handleDrop(e); }}
+        ondragover={(e) => { e.stopPropagation(); handleDragOver(e); }}
+        ondragenter={(e) => { e.stopPropagation(); handleDragEnter(e); }}
+        ondragleave={(e) => { e.stopPropagation(); handleDragLeave(e); }}
+      >
+        <input
+          type="file"
+          id="image-upload-watermark"
+          accept="image/*"
+          onchange={handleFileSelect}
+          class="hidden"
+        />
+        <input
+          type="file"
+          id="watermark-image-upload"
+          accept="image/*"
+          onchange={handleWatermarkImageSelect}
+          class="hidden"
+        />
+        
+        {#if !imageUrl}
+          <div class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-400 transition-colors bg-gray-50 dark:bg-gray-800/50 {isDragging ? 'border-primary-500 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/30' : ''}">
+            <div
+              role="button"
+              tabindex="0"
+              class="text-center cursor-pointer"
+              ondrop={handleDrop}
+              ondragover={handleDragOver}
+              ondragenter={handleDragEnter}
+              ondragleave={handleDragLeave}
+              onclick={() => document.getElementById('image-upload-watermark')?.click()}
+              onkeydown={(e) => e.key === 'Enter' && document.getElementById('image-upload-watermark')?.click()}
+            >
+              <Upload class="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4 mx-auto" />
+              <p class="text-gray-600 dark:text-gray-400 mb-2">
+                {t('imageTools.dragDropImage')}
+              </p>
+              <p class="text-sm text-gray-500 dark:text-gray-500">
+                {t('imageTools.supportedFormats')}
+              </p>
+            </div>
+          </div>
+        {/if}
+
+        {#if imageUrl}
+          <div class="w-full max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
+            <!-- Controls -->
+            <div class="space-y-2">
+              <!-- Watermark Type -->
+              <div class="space-y-1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('imageTools.watermark.type')}
+                </label>
+                <div class="flex gap-2">
+                  <button
+                    onclick={() => watermarkType = 'text'}
+                    class="flex-1 px-3 py-1.5 rounded-lg font-medium transition-colors text-sm {watermarkType === 'text'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}"
+                  >
+                    {t('imageTools.watermark.text')}
+                  </button>
+                  <button
+                    onclick={() => watermarkType = 'image'}
+                    class="flex-1 px-3 py-1.5 rounded-lg font-medium transition-colors text-sm {watermarkType === 'image'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}"
+                  >
+                    {t('imageTools.watermark.image')}
+                  </button>
+                </div>
+              </div>
+
+              {#if watermarkType === 'text'}
+                <!-- Text Watermark Settings -->
+                <div class="space-y-2">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('imageTools.watermark.text')}
+                    </label>
+                    <input
+                      type="text"
+                      bind:value={watermarkText}
+                      placeholder={t('imageTools.watermark.textPlaceholder')}
+                      class="input w-full text-sm py-1.5"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('imageTools.watermark.fontSize')} ({watermarkFontSize}px)
+                    </label>
+                    <input
+                      type="range"
+                      bind:value={watermarkFontSize}
+                      min="12"
+                      max="200"
+                      step="1"
+                      class="w-full"
+                    />
+                    <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      <span>12px</span>
+                      <span>200px</span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('imageTools.watermark.color')}
+                    </label>
+                    <div class="flex gap-2">
+                      <input
+                        type="color"
+                        bind:value={watermarkColor}
+                        class="w-14 h-8 rounded border border-gray-300 dark:border-gray-600"
+                      />
+                      <input
+                        type="text"
+                        bind:value={watermarkColor}
+                        class="input flex-1 font-mono text-sm py-1.5"
+                      />
+                    </div>
+                  </div>
+                </div>
+              {:else}
+                <!-- Image Watermark Settings -->
+                <div class="space-y-2">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('imageTools.watermark.watermarkImage')}
+                    </label>
+                    {#if watermarkImageUrl}
+                      <div class="mb-1">
+                        <img src={watermarkImageUrl} alt="Watermark" class="w-full h-24 object-contain border rounded-lg" />
+                      </div>
+                      <button
+                        onclick={() => {
+                          if (watermarkImageUrl) URL.revokeObjectURL(watermarkImageUrl);
+                          watermarkImageFile = null;
+                          watermarkImageUrl = '';
+                        }}
+                        class="btn-secondary w-full text-sm py-1.5"
+                      >
+                        {t('imageTools.watermark.removeImage')}
+                      </button>
+                    {:else}
+                      <button
+                        onclick={() => document.getElementById('watermark-image-upload')?.click()}
+                        class="btn-secondary w-full text-sm py-1.5"
+                      >
+                        {t('imageTools.watermark.selectImage')}
+                      </button>
+                    {/if}
+                  </div>
+                  
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('imageTools.watermark.scale')} ({Math.round(watermarkImageScale * 100)}%)
+                    </label>
+                    <input
+                      type="range"
+                      bind:value={watermarkImageScale}
+                      min="0.1"
+                      max="1"
+                      step="0.05"
+                      class="w-full"
+                    />
+                    <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      <span>10%</span>
+                      <span>100%</span>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+
+              <!-- Common Settings -->
+              <div class="space-y-2">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {t('imageTools.watermark.opacity')} ({Math.round(watermarkOpacity * 100)}%)
+                  </label>
+                  <input
+                    type="range"
+                    bind:value={watermarkOpacity}
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    class="w-full"
+                  />
+                  <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    <span>0%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+                
+                <!-- Full Screen Watermark Toggle -->
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      bind:checked={watermarkFullScreen}
+                      id="watermark-fullscreen"
+                      class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"
+                    />
+                    <label for="watermark-fullscreen" class="text-sm text-gray-700 dark:text-gray-300">
+                      {t('imageTools.watermark.fullScreen')}
+                    </label>
+                  </div>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 pl-6">
+                    {t('imageTools.watermark.fullScreenHint')}
+                  </p>
+                </div>
+                
+                {#if watermarkFullScreen}
+                  <!-- Full Screen Settings -->
+                  <div class="space-y-2 pl-3 border-l-2 border-gray-200 dark:border-gray-700">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        {t('imageTools.watermark.spacing')} ({watermarkSpacing}px)
+                      </label>
+                      <input
+                        type="range"
+                        bind:value={watermarkSpacing}
+                        min="50"
+                        max="500"
+                        step="10"
+                        class="w-full"
+                      />
+                      <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        <span>50px</span>
+                        <span>500px</span>
+                      </div>
+                    </div>
+                  </div>
+                {:else}
+                  <!-- Single Watermark Settings -->
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('imageTools.watermark.position')}
+                    </label>
+                    <select bind:value={watermarkPosition} class="input w-full text-sm py-1.5">
+                      <option value="top-left">{t('imageTools.watermark.topLeft')}</option>
+                      <option value="top-right">{t('imageTools.watermark.topRight')}</option>
+                      <option value="bottom-left">{t('imageTools.watermark.bottomLeft')}</option>
+                      <option value="bottom-right">{t('imageTools.watermark.bottomRight')}</option>
+                      <option value="center">{t('imageTools.watermark.center')}</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('imageTools.watermark.offsetX')} ({watermarkX}px)
+                    </label>
+                    <input
+                      type="range"
+                      bind:value={watermarkX}
+                      min="0"
+                      max="100"
+                      step="1"
+                      class="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('imageTools.watermark.offsetY')} ({watermarkY}px)
+                    </label>
+                    <input
+                      type="range"
+                      bind:value={watermarkY}
+                      min="0"
+                      max="100"
+                      step="1"
+                      class="w-full"
+                    />
+                  </div>
+                {/if}
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="space-y-2">
+                {#if isProcessing}
+                  <div class="btn-primary w-full flex items-center justify-center gap-2 text-sm opacity-50 cursor-not-allowed">
+                    {t('imageTools.processing')}
+                  </div>
+                {/if}
+                {#if watermarkedImageUrl}
+                  <div class="flex gap-2">
+                    <button
+                      onclick={downloadWatermarked}
+                      class="btn-secondary flex-1 flex items-center justify-center gap-2 text-sm"
+                    >
+                      <Download class="w-4 h-4" />
+                      {t('imageTools.download')}
+                    </button>
+                    <button
+                      onclick={clearWatermark}
+                      class="btn-secondary flex-1 text-sm"
+                    >
+                      {t('imageTools.clear')}
+                    </button>
+                  </div>
+                {/if}
+              </div>
+            </div>
+
+            <!-- Preview -->
+            <div class="flex flex-col">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {watermarkedImageUrl ? t('imageTools.processed') : t('imageTools.original')}
+                </h3>
+                {#if watermarkedSize > 0}
+                  <div class="text-xs text-gray-500 dark:text-gray-400">
+                    {(watermarkedSize / 1024).toFixed(2)} KB
+                  </div>
+                {/if}
+              </div>
+              <div class="flex-1 border rounded-lg overflow-hidden flex items-center justify-center bg-gray-50 dark:bg-gray-800 min-h-[400px]">
+                {#if watermarkedImageUrl}
+                  <img src={watermarkedImageUrl} alt="Watermarked" class="max-w-full max-h-[600px] object-contain" />
+                {:else if imageUrl}
+                  <img src={imageUrl} alt="Original" class="max-w-full max-h-[600px] object-contain" />
+                {:else}
+                  <p class="text-gray-400 dark:text-gray-500 text-sm text-center px-4">
+                    {t('imageTools.dragDropImage')}
+                  </p>
+                {/if}
+              </div>
+            </div>
+          </div>
+        {/if}
 
         {#if error}
           <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
