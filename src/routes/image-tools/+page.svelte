@@ -1133,6 +1133,63 @@
     }
   });
   
+  // Auto-compress when quality changes or image is loaded
+  // Use a plain object (not reactive) to track last values
+  let compressionTracker = {
+    lastQuality: null as number | null,
+    lastImageUrl: ''
+  };
+  
+  $effect(() => {
+    if (toolType === 'compress' && imageUrl && imageFile) {
+      const currentQuality = compressionQuality;
+      const currentImageUrl = imageUrl;
+      
+      // Check if this is a real change (not just a re-render)
+      const qualityChanged = compressionTracker.lastQuality !== null && compressionTracker.lastQuality !== currentQuality;
+      const imageChanged = compressionTracker.lastImageUrl !== '' && compressionTracker.lastImageUrl !== currentImageUrl;
+      const isFirstTime = compressionTracker.lastQuality === null;
+      
+      console.log('Compress effect triggered:', {
+        toolType,
+        hasImage: !!imageUrl,
+        hasFile: !!imageFile,
+        currentQuality,
+        lastQuality: compressionTracker.lastQuality,
+        qualityChanged,
+        imageChanged,
+        isFirstTime,
+        isProcessing,
+        shouldCompress: (qualityChanged || imageChanged || isFirstTime) && !isProcessing
+      });
+      
+      if ((qualityChanged || imageChanged || isFirstTime) && !isProcessing) {
+        // Update tracking values (non-reactive)
+        compressionTracker.lastQuality = currentQuality;
+        compressionTracker.lastImageUrl = currentImageUrl;
+        
+        console.log('Scheduling compression...');
+        
+        // Use a delay to debounce rapid slider changes
+        const timeoutId = setTimeout(() => {
+          console.log('Executing compression now');
+          if (!isProcessing) {
+            compressImage();
+          }
+        }, 300);
+        
+        return () => {
+          console.log('Cleanup: clearing timeout');
+          clearTimeout(timeoutId);
+        };
+      }
+    } else if (toolType !== 'compress') {
+      // Reset when leaving compress tool
+      compressionTracker.lastQuality = null;
+      compressionTracker.lastImageUrl = '';
+    }
+  });
+  
   async function scaleImage() {
     if (!imageFile || originalWidth === 0 || originalHeight === 0) {
       error = t('imageTools.noImageSelected');
@@ -3563,21 +3620,10 @@
               </div>
 
               <div class="flex gap-3">
-                <button
-                  onclick={compressImage}
-                  disabled={isProcessing || !imageUrl}
-                  class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {#if isProcessing}
-                    {t('imageTools.processing')}
-                  {:else}
-                    {t('imageTools.compress.compress')}
-                  {/if}
-                </button>
                 {#if compressedImageUrl}
                   <button
                     onclick={downloadCompressedImage}
-                    class="btn-secondary flex items-center gap-2"
+                    class="btn-primary flex items-center gap-2"
                   >
                     <Download class="w-4 h-4" />
                     {t('imageTools.download')}
