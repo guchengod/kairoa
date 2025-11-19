@@ -1150,38 +1150,19 @@
       const imageChanged = compressionTracker.lastImageUrl !== '' && compressionTracker.lastImageUrl !== currentImageUrl;
       const isFirstTime = compressionTracker.lastQuality === null;
       
-      console.log('Compress effect triggered:', {
-        toolType,
-        hasImage: !!imageUrl,
-        hasFile: !!imageFile,
-        currentQuality,
-        lastQuality: compressionTracker.lastQuality,
-        qualityChanged,
-        imageChanged,
-        isFirstTime,
-        isProcessing,
-        shouldCompress: (qualityChanged || imageChanged || isFirstTime) && !isProcessing
-      });
-      
       if ((qualityChanged || imageChanged || isFirstTime) && !isProcessing) {
         // Update tracking values (non-reactive)
         compressionTracker.lastQuality = currentQuality;
         compressionTracker.lastImageUrl = currentImageUrl;
         
-        console.log('Scheduling compression...');
-        
         // Use a delay to debounce rapid slider changes
         const timeoutId = setTimeout(() => {
-          console.log('Executing compression now');
           if (!isProcessing) {
             compressImage();
           }
         }, 300);
         
-        return () => {
-          console.log('Cleanup: clearing timeout');
-          clearTimeout(timeoutId);
-        };
+        return () => clearTimeout(timeoutId);
       }
     } else if (toolType !== 'compress') {
       // Reset when leaving compress tool
@@ -3566,27 +3547,46 @@
                     {t('imageTools.compress.originalSize')}: {(originalSize / 1024).toFixed(2)} KB
                   </p>
                 {/if}
+                {#if isProcessing && !compressedImageUrl}
+                  <p class="text-sm text-primary-600 dark:text-primary-400 animate-pulse">
+                    → {t('imageTools.processing')}
+                  </p>
+                {/if}
               </div>
 
               <!-- 压缩后图片 -->
               <div class="space-y-3 flex flex-col">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {t('imageTools.compress.compressed')}
+                  {#if isProcessing}
+                    <span class="ml-2 text-sm font-normal text-primary-600 dark:text-primary-400">
+                      ({t('imageTools.processing')})
+                    </span>
+                  {/if}
                 </h3>
-                <div class="border-2 {compressedImageUrl ? 'border-primary-500 dark:border-primary-400' : 'border-dashed border-gray-300 dark:border-gray-600'} rounded-lg overflow-hidden {compressedImageUrl ? 'bg-gray-100 dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800/50'} flex items-center justify-center" style="min-height: 384px;">
+                <div class="border-2 {compressedImageUrl ? 'border-primary-500 dark:border-primary-400' : 'border-dashed border-gray-300 dark:border-gray-600'} rounded-lg overflow-hidden {compressedImageUrl ? 'bg-gray-100 dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800/50'} flex items-center justify-center relative" style="min-height: 384px;">
+                  {#if isProcessing}
+                    <!-- 压缩中的加载指示器 -->
+                    <div class="absolute inset-0 bg-white/80 dark:bg-gray-900/80 flex flex-col items-center justify-center z-10">
+                      <div class="w-12 h-12 border-4 border-primary-200 dark:border-primary-800 border-t-primary-600 dark:border-t-primary-400 rounded-full animate-spin"></div>
+                      <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                        {t('imageTools.processing')}
+                      </p>
+                    </div>
+                  {/if}
                   {#if compressedImageUrl}
                     <img
                       src={compressedImageUrl}
                       alt="Compressed"
-                      class="w-full h-auto max-h-96 object-contain"
+                      class="w-full h-auto max-h-96 object-contain {isProcessing ? 'opacity-50' : ''}"
                     />
-                  {:else}
+                  {:else if !isProcessing}
                     <p class="text-gray-500 dark:text-gray-400">
                       {t('imageTools.compress.previewPlaceholder')}
                     </p>
                   {/if}
                 </div>
-                {#if compressedSize > 0}
+                {#if compressedSize > 0 && !isProcessing}
                   <div class="space-y-1">
                     <p class="text-sm text-gray-600 dark:text-gray-400">
                       {t('imageTools.compress.compressedSize')}: {(compressedSize / 1024).toFixed(2)} KB
