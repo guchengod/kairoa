@@ -291,11 +291,10 @@
               bind:value={namespaceName}
               class="input"
             >
-              <option value="">{t('uuid.namespaceDNS')}</option>
-              <option value={NAMESPACES.DNS}>{t('uuid.namespaceDNS')} - {NAMESPACES.DNS}</option>
-              <option value={NAMESPACES.URL}>{t('uuid.namespaceURL')} - {NAMESPACES.URL}</option>
-              <option value={NAMESPACES.OID}>{t('uuid.namespaceOID')} - {NAMESPACES.OID}</option>
-              <option value={NAMESPACES.X500}>{t('uuid.namespaceX500')} - {NAMESPACES.X500}</option>
+              <option value="">DNS - {NAMESPACES.DNS}</option>
+              <option value={NAMESPACES.URL}>URL - {NAMESPACES.URL}</option>
+              <option value={NAMESPACES.OID}>OID - {NAMESPACES.OID}</option>
+              <option value={NAMESPACES.X500}>X500 - {NAMESPACES.X500}</option>
             </select>
           </div>
           
