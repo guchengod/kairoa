@@ -17,6 +17,7 @@
     releaseUrl: string;
     releaseName: string;
     releaseBody: string;
+    error?: boolean;
   } | null>(null);
   let updateInstance: any = null;
 
@@ -77,11 +78,12 @@
       console.error('Failed to check for update:', error);
       updateInfo = {
         available: false,
-        currentVersion: 'Unknown',
-        latestVersion: 'Unknown',
+        currentVersion: '',
+        latestVersion: '',
         releaseUrl: '',
         releaseName: '',
-        releaseBody: t('update.error')
+        releaseBody: '',
+        error: true
       };
     } finally {
       checkingUpdate = false;
@@ -203,9 +205,13 @@
       {:else}
         <!-- Header -->
         <div class="flex flex-col items-center text-center mb-6">
-          <div class="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mb-3">
+          <button
+            onclick={checkForUpdate}
+            class="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mb-3 hover:bg-primary-200 dark:hover:bg-primary-900/50 transition-colors {updateInfo?.error ? 'cursor-pointer' : 'cursor-default'}"
+            disabled={!updateInfo?.error}
+          >
             <RefreshCw class="w-6 h-6 text-primary-600 dark:text-primary-400" />
-          </div>
+          </button>
           <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">
             {t('update.check')}
           </h2>
@@ -251,32 +257,44 @@
           {:else if updateInfo}
           <!-- Update Info -->
           <div class="space-y-4">
-            <div class="text-center">
-              {#if updateInfo.available}
-                <p class="text-lg font-semibold text-primary-600 dark:text-primary-400 mb-2">
-                  {t('update.available')}
+            {#if updateInfo.error}
+              <!-- Error State -->
+              <div class="text-center space-y-4">
+                <p class="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
+                  {t('update.error')}
                 </p>
-              {:else}
-                <p class="text-lg font-semibold text-green-600 dark:text-green-400 mb-2">
-                  {t('update.latest')}
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  请检查网络连接后重试
                 </p>
-              {/if}
-            </div>
-
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="text-gray-600 dark:text-gray-400">{t('update.currentVersion')}:</span>
-                <span class="font-medium text-gray-900 dark:text-gray-100">{updateInfo.currentVersion}</span>
               </div>
-              {#if updateInfo.available}
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{t('update.latestVersion')}:</span>
-                  <span class="font-medium text-gray-900 dark:text-gray-100">{updateInfo.latestVersion}</span>
-                </div>
-              {/if}
-            </div>
+            {:else}
+              <div class="text-center">
+                {#if updateInfo.available}
+                  <p class="text-lg font-semibold text-primary-600 dark:text-primary-400 mb-2">
+                    {t('update.available')}
+                  </p>
+                {:else}
+                  <p class="text-lg font-semibold text-green-600 dark:text-green-400 mb-2">
+                    {t('update.latest')}
+                  </p>
+                {/if}
+              </div>
 
-            {#if updateInfo.available}
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">{t('update.currentVersion')}:</span>
+                  <span class="font-medium text-gray-900 dark:text-gray-100">{updateInfo.currentVersion}</span>
+                </div>
+                {#if updateInfo.available}
+                  <div class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">{t('update.latestVersion')}:</span>
+                    <span class="font-medium text-gray-900 dark:text-gray-100">{updateInfo.latestVersion}</span>
+                  </div>
+                {/if}
+              </div>
+            {/if}
+
+            {#if updateInfo.available && !updateInfo.error}
               <div class="flex gap-3">
                 {#if updateInfo.releaseUrl}
                   <button
