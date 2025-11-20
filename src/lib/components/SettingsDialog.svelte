@@ -6,8 +6,8 @@
 
   let translations = $derived($translationsStore);
   let showDialog = $state(false);
-  let currentTheme = $state<'kairoa-light' | 'kairoa-dark' | 'solarized-light' | 'solarized-dark'>('kairoa-light');
-  let currentLocale = $state<'en' | 'zh'>('en');
+  let currentTheme = $state($theme);
+  let currentLocale = $state($locale);
 
   function t(key: string): string {
     const keys = key.split('.');
@@ -18,20 +18,13 @@
     return value || key;
   }
 
-  // 监听主题变化
+  // 使用 $effect 来同步 store 的变化
   $effect(() => {
-    const unsubscribe = theme.subscribe((t) => {
-      currentTheme = t;
-    });
-    return unsubscribe;
+    currentTheme = $theme;
   });
 
-  // 监听语言变化
   $effect(() => {
-    const unsubscribe = locale.subscribe((l) => {
-      currentLocale = l;
-    });
-    return unsubscribe;
+    currentLocale = $locale;
   });
 
   // 监听设置事件
