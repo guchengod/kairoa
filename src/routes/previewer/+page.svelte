@@ -602,10 +602,16 @@
 
   // 配置 marked 选项并自定义渲染器
   const customRenderer: Partial<RendererObject> = {
-    link(href: string, title: string | null | undefined, text: string) {
+    link(token: any) {
+      const href = token.href || '';
+      const title = token.title || '';
+      const text = token.text || '';
       return `<a href="${href}" target="_blank" rel="noopener noreferrer"${title ? ` title="${title}"` : ''}>${text}</a>`;
     },
-    image(href: string, title: string | null | undefined, text: string) {
+    image(token: any) {
+      const href = token.href || '';
+      const title = token.title || '';
+      const text = token.text || '';
       return `<img src="${href}" alt="${text}" class="max-w-full rounded"${title ? ` title="${title}"` : ''}>`;
     },
   };
