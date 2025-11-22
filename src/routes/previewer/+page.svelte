@@ -1337,10 +1337,10 @@
         <div class="flex-1 min-h-0 grid grid-cols-2 gap-2">
           <!-- SVG 输入 -->
           <div class="card flex flex-col h-full">
-            <div class="flex items-center justify-between mb-2 flex-shrink-0">
-              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0 h-[26px]">
+              <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.svgInput')}
-              </span>
+              </div>
             </div>
             <div class="flex-1 min-h-0">
               <textarea
@@ -1353,10 +1353,10 @@
 
           <!-- SVG 预览 -->
           <div class="card flex flex-col h-full" data-preview="svg" bind:this={svgPreviewContainer}>
-            <div class="flex items-center justify-between mb-2 flex-shrink-0">
-              <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0 h-[26px]">
+              <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.preview')}
-              </h3>
+              </div>
               <div class="flex items-center gap-2">
                 {#if svgContent.trim() && !isValidSVG(svgContent)}
                   <span class="text-xs text-red-600 dark:text-red-400">
@@ -1365,7 +1365,7 @@
                 {/if}
                 <button
                   onclick={() => toggleFullscreen(svgPreviewContainer)}
-                  class="btn-secondary text-xs p-1.5"
+                  class="p-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded transition-colors"
                   title={isElementFullscreen(svgPreviewContainer) ? t('previewer.exitFullscreen') : t('previewer.fullscreen')}
                 >
                   {#if isElementFullscreen(svgPreviewContainer)}
@@ -1444,10 +1444,10 @@
         <div class="flex-1 min-h-0 grid grid-cols-2 gap-2">
           <!-- Markdown 输入 -->
           <div class="card flex flex-col h-full">
-            <div class="flex items-center justify-between mb-2 flex-shrink-0">
-              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0 h-[26px]">
+              <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.markdownInput')}
-              </span>
+              </div>
             </div>
             <div class="flex-1 min-h-0">
               <textarea
@@ -1460,13 +1460,13 @@
 
           <!-- Markdown 预览 -->
           <div class="card flex flex-col h-full" bind:this={markdownPreviewContainer}>
-            <div class="flex items-center justify-between mb-2 flex-shrink-0">
-              <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0 h-[26px]">
+              <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.preview')}
-              </h3>
+              </div>
               <button
                 onclick={() => toggleFullscreen(markdownPreviewContainer)}
-                class="btn-secondary text-xs p-1.5"
+                class="p-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded transition-colors"
                 title={isElementFullscreen(markdownPreviewContainer) ? t('previewer.exitFullscreen') : t('previewer.fullscreen')}
               >
                 {#if isElementFullscreen(markdownPreviewContainer)}
@@ -1574,10 +1574,10 @@
         <div class="flex-1 min-h-0 grid grid-cols-2 gap-2">
           <!-- Mermaid 输入 -->
           <div class="card flex flex-col h-full">
-            <div class="flex items-center justify-between mb-2 flex-shrink-0">
-              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0 h-[26px]">
+              <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.mermaidInput')}
-              </span>
+              </div>
             </div>
             <div class="flex-1 min-h-0">
               <textarea
@@ -1590,13 +1590,13 @@
 
           <!-- Mermaid 预览 -->
           <div class="card flex flex-col h-full" bind:this={mermaidPreviewContainer}>
-            <div class="flex items-center justify-between mb-2 flex-shrink-0">
-              <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0 h-[26px]">
+              <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.preview')}
-              </h3>
+              </div>
               <button
                 onclick={() => toggleFullscreen(mermaidPreviewContainer)}
-                class="btn-secondary text-xs p-1.5"
+                class="p-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded transition-colors"
                 title={isElementFullscreen(mermaidPreviewContainer) ? t('previewer.exitFullscreen') : t('previewer.fullscreen')}
               >
                 {#if isElementFullscreen(mermaidPreviewContainer)}
