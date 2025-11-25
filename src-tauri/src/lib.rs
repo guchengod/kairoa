@@ -808,6 +808,32 @@ pub struct TlsCheckResponse {
     cipher_suites: Vec<CipherSuiteInfo>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PortScanRequest {
+    host: String,
+    start_port: u16,
+    end_port: u16,
+    timeout_ms: Option<u64>,
+    max_concurrency: Option<usize>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PortScanResult {
+    port: u16,
+    status: String,
+    latency_ms: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PortScanResponse {
+    host: String,
+    start_port: u16,
+    end_port: u16,
+    scanned_ports: usize,
+    duration_ms: u128,
+    open_ports: Vec<PortScanResult>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CertificateInfo {
     subject: String,
@@ -1182,6 +1208,75 @@ fn convert_iana_to_openssl(iana_name: &str) -> String {
     }.to_string()
 }
 
+// Port scanner command
+#[tauri::command]
+async fn scan_ports(request: PortScanRequest) -> Result<PortScanResponse, String> {
+    use futures::stream::{self, StreamExt};
+    use tokio::time::{timeout, Duration};
+
+    let host = request.host.trim().to_string();
+    if host.is_empty() {
+        return Err("Host is required".to_string());
+    }
+
+    if request.start_port == 0 || request.end_port == 0 || request.start_port > request.end_port {
+        return Err("Invalid port range".to_string());
+    }
+
+    // Auto-adjust timeout and concurrency based on port range size
+    let port_count = (request.end_port - request.start_port + 1) as usize;
+    let (default_timeout, default_concurrency) = if port_count > 10000 {
+        // Large range (e.g., all ports): faster timeout, higher concurrency
+        (300, 500)
+    } else if port_count > 2048 {
+        // Medium range: moderate settings
+        (500, 300)
+    } else {
+        // Small range: default settings
+        (700, 200)
+    };
+    
+    let timeout_ms = request.timeout_ms.unwrap_or(default_timeout).clamp(50, 10_000);
+    let concurrency = request.max_concurrency.unwrap_or(default_concurrency).clamp(1, 1000);
+    let timeout_duration = Duration::from_millis(timeout_ms);
+
+    let ports: Vec<u16> = (request.start_port..=request.end_port).collect();
+    let total_ports = ports.len();
+    let start = std::time::Instant::now();
+
+    let open_ports = stream::iter(ports.into_iter().map(|port| {
+        let host = host.clone();
+        async move {
+            let port_start = std::time::Instant::now();
+            let addr = format!("{}:{}", host, port);
+            match timeout(timeout_duration, tokio::net::TcpStream::connect(&addr)).await {
+                Ok(Ok(_stream)) => {
+                    let latency = port_start.elapsed().as_secs_f64() * 1000.0;
+                    Some(PortScanResult {
+                        port,
+                        status: "open".to_string(),
+                        latency_ms: Some(latency),
+                    })
+                }
+                _ => None,
+            }
+        }
+    }))
+    .buffer_unordered(concurrency)
+    .filter_map(|result| async move { result })
+    .collect::<Vec<_>>()
+    .await;
+
+    Ok(PortScanResponse {
+        host,
+        start_port: request.start_port,
+        end_port: request.end_port,
+        scanned_ports: total_ports,
+        duration_ms: start.elapsed().as_millis(),
+        open_ports,
+    })
+}
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -1306,7 +1401,8 @@ pub fn run() {
             verify_argon2,
             compress_image,
             pdf_to_image,
-            check_tls_versions
+            check_tls_versions,
+            scan_ports
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

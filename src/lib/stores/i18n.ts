@@ -57,6 +57,7 @@ const translations = {
       qrCode: 'QR Code Generator',
       pdfSignature: 'PDF Signature Checker',
       tlsChecker: 'TLS Version Checker',
+      portScanner: 'Port Scanner',
       chmod: 'Chmod Calculator',
       keycode: 'Keycode Info',
       basicAuth: 'Basic Auth Generator',
@@ -854,6 +855,32 @@ const translations = {
         checkFailed: 'Failed to check TLS versions'
       }
     },
+    portScanner: {
+      title: 'Port Scanner',
+      description: 'Scan TCP ports on a remote host to check which ones are open',
+      host: 'Host',
+      hostPlaceholder: 'example.com or 192.168.0.1',
+      startPort: 'Start Port',
+      endPort: 'End Port',
+      timeout: 'Timeout (ms)',
+      concurrency: 'Max Concurrency',
+      quickRanges: 'Quick ranges',
+      scan: 'Scan',
+      scanning: 'Scanning...',
+      clear: 'Clear',
+      summary: 'Summary',
+      scannedPorts: 'Ports Scanned',
+      duration: 'Duration',
+      openPorts: 'Open Ports',
+      statusOpen: 'Open',
+      statusClosed: 'Closed',
+      noResults: 'No open ports detected in this range.',
+      errors: {
+        hostRequired: 'Host is required',
+        invalidRange: 'Invalid port range (1-65535)',
+        scanFailed: 'Port scan failed'
+      }
+    },
     keycode: {
       title: 'Keycode Info',
       description: 'Press any key to see its key code, key name, and event information',
@@ -983,6 +1010,7 @@ const translations = {
       qrCode: '二维码生成器',
       pdfSignature: 'PDF 签名校验',
       tlsChecker: 'TLS 版本检测',
+      portScanner: '端口扫描',
       chmod: 'Chmod 权限计算器',
       keycode: '按键代码信息',
       basicAuth: 'Basic Auth 生成器',
@@ -1778,6 +1806,32 @@ const translations = {
         hostRequired: '主机地址是必填项',
         invalidPort: '无效的端口号（1-65535）',
         checkFailed: '检测 TLS 版本失败'
+      }
+    },
+    portScanner: {
+      title: '端口扫描',
+      description: '扫描远程主机的 TCP 端口，了解哪些端口开放',
+      host: '主机',
+      hostPlaceholder: 'example.com 或 192.168.0.1',
+      startPort: '起始端口',
+      endPort: '结束端口',
+      timeout: '超时时间（毫秒）',
+      concurrency: '最大并发',
+      quickRanges: '快捷范围',
+      scan: '开始扫描',
+      scanning: '扫描中...',
+      clear: '清空',
+      summary: '扫描摘要',
+      scannedPorts: '扫描端口数量',
+      duration: '耗时',
+      openPorts: '开放端口',
+      statusOpen: '开放',
+      statusClosed: '关闭',
+      noResults: '该范围内未检测到开放端口。',
+      errors: {
+        hostRequired: '主机地址是必填项',
+        invalidRange: '无效的端口范围（1-65535）',
+        scanFailed: '端口扫描失败'
       }
     },
     keycode: {

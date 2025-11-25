@@ -89,6 +89,12 @@
 - Display certificate information
 - Identify preferred TLS version
 
+### 📡 Port Scanner
+- Scan TCP ports on any remote host with custom ranges
+- Adjustable timeout and concurrency controls for faster scans
+- Quick presets for top/common ports
+- Displays open ports with response latency
+
 ### 🎨 Color Converter
 - Convert between color formats: HEX, RGB, RGBA, HSL, HSLA
 - Color preview
