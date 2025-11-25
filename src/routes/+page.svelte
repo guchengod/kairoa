@@ -104,6 +104,7 @@
     { path: '/roman-numeral', icon: Calculator, key: 'nav.romanNumeral', subItems: [] },
     { path: '/qr-code', icon: QrCode, key: 'nav.qrCode', subItems: [] },
     { path: '/pdf-signature', icon: FileSignature, key: 'nav.pdfSignature', subItems: [] },
+    { path: '/tls-checker', icon: ShieldCheck, key: 'nav.tlsChecker', subItems: [] },
     { path: '/chmod', icon: Terminal, key: 'nav.chmod', subItems: [] },
     { path: '/keycode', icon: Keyboard, key: 'nav.keycode', subItems: [] },
   ];

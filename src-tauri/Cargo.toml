@@ -28,6 +28,11 @@ tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", features = ["json", "multipart"] }
+native-tls = "0.2"
+tokio-native-tls = "0.3"
+rustls = "0.23"
+rustls-pemfile = "2.0"
+tokio-rustls = "0.25"
 tokio = { version = "1", features = ["full"] }
 base64 = "0.22"
 dsa = "0.6"

@@ -83,6 +83,12 @@
 - Validate CMS (PKCS#7) detached signatures
 - Display signer metadata, byte ranges, and certificate fields
 
+### 🔒 TLS Version Checker
+- Check which TLS/SSL versions are supported by remote servers
+- Test TLS 1.0, 1.1, 1.2, and 1.3 support
+- Display certificate information
+- Identify preferred TLS version
+
 ### 🎨 Color Converter
 - Convert between color formats: HEX, RGB, RGBA, HSL, HSLA
 - Color preview

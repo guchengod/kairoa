@@ -86,6 +86,7 @@
     { path: '/roman-numeral', icon: Calculator, key: 'nav.romanNumeral' },
     { path: '/qr-code', icon: QrCode, key: 'nav.qrCode' },
     { path: '/pdf-signature', icon: FileSignature, key: 'nav.pdfSignature' },
+    { path: '/tls-checker', icon: ShieldCheck, key: 'nav.tlsChecker' },
     { path: '/chmod', icon: Terminal, key: 'nav.chmod' },
     { path: '/keycode', icon: Keyboard, key: 'nav.keycode' },
   ];

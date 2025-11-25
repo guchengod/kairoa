@@ -29,6 +29,7 @@ const translations = {
       baseConverterDesc: 'Convert between number bases (binary, octal, decimal, hex)',
       qrCodeDesc: 'Generate QR codes from text or URLs',
       pdfSignatureDesc: 'Inspect and verify digital signatures embedded in PDF files',
+      tlsCheckerDesc: 'Check which TLS/SSL versions are supported by remote servers',
       chmodDesc: 'Calculate and convert file permissions (chmod)',
       keycodeDesc: 'View keyboard key codes and event information',
       basicAuthDesc: 'Generate HTTP Basic Authentication headers',
@@ -55,6 +56,7 @@ const translations = {
       imageTools: 'Image Tools',
       qrCode: 'QR Code Generator',
       pdfSignature: 'PDF Signature Checker',
+      tlsChecker: 'TLS Version Checker',
       chmod: 'Chmod Calculator',
       keycode: 'Keycode Info',
       basicAuth: 'Basic Auth Generator',
@@ -818,6 +820,40 @@ const translations = {
       example: 'Example Command',
       exampleDesc: 'Use this command to set file permissions'
     },
+    tlsChecker: {
+      title: 'TLS Version Checker',
+      description: 'Check which TLS/SSL versions are supported by a remote server',
+      host: 'Host',
+      hostPlaceholder: 'example.com',
+      portHint: 'Default port 443 (HTTPS) will be used',
+      check: 'Check',
+      checking: 'Checking...',
+      clear: 'Clear',
+      results: 'Results',
+      target: 'Target',
+      preferredVersion: 'Preferred Version',
+      supportedVersions: 'Supported TLS Versions',
+      cipherSuites: 'Cipher Suites',
+      supported: 'Supported',
+      notSupported: 'Not Supported',
+      certificateInfo: 'Certificate Information',
+      certificateSubject: 'Subject',
+      certificateIssuer: 'Issuer',
+      certificateValidFrom: 'Valid From',
+      certificateValidTo: 'Valid To',
+      certificateSerial: 'Serial Number',
+      security: {
+        secure: 'Secure',
+        moderate: 'Moderate',
+        weak: 'Weak',
+        insecure: 'Insecure'
+      },
+      errors: {
+        hostRequired: 'Host is required',
+        invalidPort: 'Invalid port number (1-65535)',
+        checkFailed: 'Failed to check TLS versions'
+      }
+    },
     keycode: {
       title: 'Keycode Info',
       description: 'Press any key to see its key code, key name, and event information',
@@ -919,6 +955,7 @@ const translations = {
       baseConverterDesc: '数字进制转换（二进制、八进制、十进制、十六进制）',
       qrCodeDesc: '从文本或 URL 生成二维码',
       pdfSignatureDesc: '检查 PDF 中的数字签名并验证完整性',
+      tlsCheckerDesc: '检测远程服务器支持的 TLS/SSL 版本',
       chmodDesc: '计算和转换文件权限（chmod）',
       keycodeDesc: '查看键盘按键代码和事件信息',
       basicAuthDesc: '生成 HTTP Basic Authentication 认证头',
@@ -945,6 +982,7 @@ const translations = {
       imageTools: '图片处理',
       qrCode: '二维码生成器',
       pdfSignature: 'PDF 签名校验',
+      tlsChecker: 'TLS 版本检测',
       chmod: 'Chmod 权限计算器',
       keycode: '按键代码信息',
       basicAuth: 'Basic Auth 生成器',
@@ -1707,6 +1745,40 @@ const translations = {
       invalidSymbol: '无效的符号表示。请使用 r、w、x 或 -',
       example: '示例命令',
       exampleDesc: '使用此命令设置文件权限'
+    },
+    tlsChecker: {
+      title: 'TLS 版本检测',
+      description: '检测远程服务器支持的 TLS/SSL 版本',
+      host: '主机',
+      hostPlaceholder: 'example.com',
+      portHint: '默认使用 443 端口（HTTPS）',
+      check: '检测',
+      checking: '检测中...',
+      clear: '清空',
+      results: '检测结果',
+      target: '目标',
+      preferredVersion: '首选版本',
+      supportedVersions: '支持的 TLS 版本',
+      cipherSuites: '密码套件',
+      supported: '支持',
+      notSupported: '不支持',
+      certificateInfo: '证书信息',
+      certificateSubject: '主题',
+      certificateIssuer: '颁发者',
+      certificateValidFrom: '有效期开始',
+      certificateValidTo: '有效期结束',
+      certificateSerial: '序列号',
+      security: {
+        secure: '安全',
+        moderate: '中等',
+        weak: '弱',
+        insecure: '不安全'
+      },
+      errors: {
+        hostRequired: '主机地址是必填项',
+        invalidPort: '无效的端口号（1-65535）',
+        checkFailed: '检测 TLS 版本失败'
+      }
     },
     keycode: {
       title: '按键代码信息',
