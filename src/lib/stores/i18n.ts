@@ -34,7 +34,8 @@ const translations = {
       keycodeDesc: 'View keyboard key codes and event information',
       basicAuthDesc: 'Generate HTTP Basic Authentication headers',
       otpDesc: 'Generate TOTP and HOTP one-time passwords',
-      romanNumeralDesc: 'Convert between Roman numerals and Arabic numbers'
+      romanNumeralDesc: 'Convert between Roman numerals and Arabic numbers',
+      regexTesterDesc: 'Test and debug regular expressions with real-time matching'
     },
     nav: {
       hash: 'Hash Calculator',
@@ -64,6 +65,7 @@ const translations = {
       otp: 'OTP Generator',
       hmac: 'HMAC Generator',
       romanNumeral: 'Roman Numeral Converter',
+      regexTester: 'Regex Tester',
       settings: 'Settings'
     },
     imageTools: {
@@ -881,6 +883,30 @@ const translations = {
         scanFailed: 'Port scan failed'
       }
     },
+    regexTester: {
+      title: 'Regex Tester',
+      description: 'Test and debug regular expressions with real-time matching and highlighting',
+      pattern: 'Regular Expression',
+      patternPlaceholder: 'Enter regex pattern...',
+      flags: 'Flags',
+      testText: 'Test Text',
+      testTextPlaceholder: 'Enter text to test against the regex...',
+      test: 'Test',
+      clear: 'Clear',
+      results: 'Results',
+      matchesFound: 'Matches Found',
+      matches: 'Matches',
+      match: 'Match',
+      index: 'Index',
+      at: 'at',
+      groups: 'Groups',
+      highlightedText: 'Highlighted Text',
+      copy: 'Copy',
+      examples: 'Common Examples',
+      noMatches: 'No matches found',
+      enterTestText: 'Enter test text to see results',
+      items: 'items'
+    },
     keycode: {
       title: 'Keycode Info',
       description: 'Press any key to see its key code, key name, and event information',
@@ -987,7 +1013,8 @@ const translations = {
       keycodeDesc: '查看键盘按键代码和事件信息',
       basicAuthDesc: '生成 HTTP Basic Authentication 认证头',
       otpDesc: '生成 TOTP 和 HOTP 一次性密码',
-      romanNumeralDesc: '罗马数字和阿拉伯数字之间的转换'
+      romanNumeralDesc: '罗马数字和阿拉伯数字之间的转换',
+      regexTesterDesc: '实时测试和调试正则表达式，支持匹配高亮'
     },
     nav: {
       hash: 'Hash 计算器',
@@ -1017,6 +1044,7 @@ const translations = {
       otp: 'OTP 生成器',
       hmac: 'HMAC 生成器',
       romanNumeral: '罗马数字转换器',
+      regexTester: '正则表达式测试器',
       settings: '设置'
     },
     imageTools: {
@@ -1833,6 +1861,30 @@ const translations = {
         invalidRange: '无效的端口范围（1-65535）',
         scanFailed: '端口扫描失败'
       }
+    },
+    regexTester: {
+      title: '正则表达式测试器',
+      description: '实时测试和调试正则表达式，支持匹配高亮',
+      pattern: '正则表达式',
+      patternPlaceholder: '输入正则表达式...',
+      flags: '标志',
+      testText: '测试文本',
+      testTextPlaceholder: '输入要测试的文本...',
+      test: '测试',
+      clear: '清空',
+      results: '结果',
+      matchesFound: '找到匹配',
+      matches: '匹配项',
+      match: '匹配',
+      index: '索引',
+      at: '位置',
+      groups: '分组',
+      highlightedText: '高亮文本',
+      copy: '复制',
+      examples: '常用示例',
+      noMatches: '未找到匹配项',
+      enterTestText: '输入测试文本以查看结果',
+      items: '项'
     },
     keycode: {
       title: '按键代码信息',

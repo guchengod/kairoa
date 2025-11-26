@@ -3,7 +3,7 @@
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
-  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar } from 'lucide-svelte';
+  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex } from 'lucide-svelte';
 
   const navItems = [
     { path: '/api-client', icon: Globe, key: 'nav.apiClient' },
@@ -88,6 +88,7 @@
     { path: '/pdf-signature', icon: FileSignature, key: 'nav.pdfSignature' },
     { path: '/tls-checker', icon: ShieldCheck, key: 'nav.tlsChecker' },
     { path: '/port-scanner', icon: Radar, key: 'nav.portScanner' },
+    { path: '/regex-tester', icon: Regex, key: 'nav.regexTester' },
     { path: '/chmod', icon: Terminal, key: 'nav.chmod' },
     { path: '/keycode', icon: Keyboard, key: 'nav.keycode' },
   ];

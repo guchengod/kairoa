@@ -1,7 +1,7 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
   import { goto } from '$app/navigation';
-  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar } from 'lucide-svelte';
+  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex } from 'lucide-svelte';
 
   let translations = $derived($translationsStore);
   let searchQuery = $state('');
@@ -106,6 +106,7 @@
     { path: '/pdf-signature', icon: FileSignature, key: 'nav.pdfSignature', subItems: [] },
     { path: '/tls-checker', icon: ShieldCheck, key: 'nav.tlsChecker', subItems: [] },
     { path: '/port-scanner', icon: Radar, key: 'nav.portScanner', subItems: [] },
+    { path: '/regex-tester', icon: Regex, key: 'nav.regexTester', subItems: [] },
     { path: '/chmod', icon: Terminal, key: 'nav.chmod', subItems: [] },
     { path: '/keycode', icon: Keyboard, key: 'nav.keycode', subItems: [] },
   ];
