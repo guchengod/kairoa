@@ -30,12 +30,14 @@ const translations = {
       qrCodeDesc: 'Generate QR codes from text or URLs',
       pdfSignatureDesc: 'Inspect and verify digital signatures embedded in PDF files',
       tlsCheckerDesc: 'Check which TLS/SSL versions are supported by remote servers',
+      portScannerDesc: 'Scan open ports on remote hosts with customizable ranges and concurrency',
       chmodDesc: 'Calculate and convert file permissions (chmod)',
       keycodeDesc: 'View keyboard key codes and event information',
       basicAuthDesc: 'Generate HTTP Basic Authentication headers',
       otpDesc: 'Generate TOTP and HOTP one-time passwords',
       romanNumeralDesc: 'Convert between Roman numerals and Arabic numbers',
-      regexTesterDesc: 'Test and debug regular expressions with real-time matching'
+      regexTesterDesc: 'Test and debug regular expressions with real-time matching',
+      sqlFormatterDesc: 'Format and beautify SQL queries with customizable options'
     },
     nav: {
       hash: 'Hash Calculator',
@@ -66,6 +68,7 @@ const translations = {
       hmac: 'HMAC Generator',
       romanNumeral: 'Roman Numeral Converter',
       regexTester: 'Regex Tester',
+      sqlFormatter: 'SQL Formatter',
       settings: 'Settings'
     },
     imageTools: {
@@ -907,6 +910,31 @@ const translations = {
       enterTestText: 'Enter test text to see results',
       items: 'items'
     },
+    sqlFormatter: {
+      title: 'SQL Formatter',
+      description: 'Format and beautify SQL queries with customizable options',
+      options: 'Formatting Options',
+      indentSize: 'Indent Size',
+      spaces: 'Spaces',
+      twoSpaces: '2 Spaces',
+      fourSpaces: '4 Spaces',
+      tab: 'Tab',
+      keywordCase: 'Keyword Case',
+      uppercase: 'Uppercase',
+      lowercase: 'Lowercase',
+      linesBetweenQueries: 'Lines Between Queries',
+      zeroLines: '0 Lines',
+      oneLine: '1 Line',
+      twoLines: '2 Lines',
+      threeLines: '3 Lines',
+      format: 'Format',
+      clear: 'Clear',
+      input: 'Input',
+      inputPlaceholder: 'Enter SQL query here...',
+      output: 'Output',
+      outputPlaceholder: 'Formatted SQL will appear here...',
+      copy: 'Copy'
+    },
     keycode: {
       title: 'Keycode Info',
       description: 'Press any key to see its key code, key name, and event information',
@@ -1009,12 +1037,14 @@ const translations = {
       qrCodeDesc: '从文本或 URL 生成二维码',
       pdfSignatureDesc: '检查 PDF 中的数字签名并验证完整性',
       tlsCheckerDesc: '检测远程服务器支持的 TLS/SSL 版本',
+      portScannerDesc: '扫描远程主机的开放端口，支持自定义范围和并发设置',
       chmodDesc: '计算和转换文件权限（chmod）',
       keycodeDesc: '查看键盘按键代码和事件信息',
       basicAuthDesc: '生成 HTTP Basic Authentication 认证头',
       otpDesc: '生成 TOTP 和 HOTP 一次性密码',
       romanNumeralDesc: '罗马数字和阿拉伯数字之间的转换',
-      regexTesterDesc: '实时测试和调试正则表达式，支持匹配高亮'
+      regexTesterDesc: '实时测试和调试正则表达式，支持匹配高亮',
+      sqlFormatterDesc: '格式化和美化 SQL 查询，支持自定义选项'
     },
     nav: {
       hash: 'Hash 计算器',
@@ -1045,6 +1075,7 @@ const translations = {
       hmac: 'HMAC 生成器',
       romanNumeral: '罗马数字转换器',
       regexTester: '正则表达式测试器',
+      sqlFormatter: 'SQL 格式化',
       settings: '设置'
     },
     imageTools: {
@@ -1885,6 +1916,31 @@ const translations = {
       noMatches: '未找到匹配项',
       enterTestText: '输入测试文本以查看结果',
       items: '项'
+    },
+    sqlFormatter: {
+      title: 'SQL 格式化',
+      description: '格式化和美化 SQL 查询，支持自定义选项',
+      options: '格式化选项',
+      indentSize: '缩进大小',
+      spaces: '空格',
+      twoSpaces: '2 个空格',
+      fourSpaces: '4 个空格',
+      tab: '制表符',
+      keywordCase: '关键字大小写',
+      uppercase: '大写',
+      lowercase: '小写',
+      linesBetweenQueries: '查询间空行数',
+      zeroLines: '0 行',
+      oneLine: '1 行',
+      twoLines: '2 行',
+      threeLines: '3 行',
+      format: '格式化',
+      clear: '清空',
+      input: '输入',
+      inputPlaceholder: '在此输入 SQL 查询...',
+      output: '输出',
+      outputPlaceholder: '格式化后的 SQL 将显示在这里...',
+      copy: '复制'
     },
     keycode: {
       title: '按键代码信息',

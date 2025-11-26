@@ -1,7 +1,7 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
   import { goto } from '$app/navigation';
-  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex } from 'lucide-svelte';
+  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database } from 'lucide-svelte';
 
   let translations = $derived($translationsStore);
   let searchQuery = $state('');
@@ -65,6 +65,7 @@
       ]
     },
     { path: '/json', icon: FileJson, key: 'nav.json', subItems: [] },
+    { path: '/sql-formatter', icon: Database, key: 'nav.sqlFormatter', subItems: [] },
     { 
       path: '/text-processing', 
       icon: FileText, 
@@ -129,7 +130,14 @@
       });
     } else {
       // 如果没有子菜单，直接添加主菜单项
-      const pathKey = item.path.replace('/', '').replace(/-/g, '');
+      // 将路径转换为 camelCase，例如 /base-converter -> baseConverter
+      const pathKey = item.path
+        .replace('/', '')
+        .split('-')
+        .map((word, index) => 
+          index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)
+        )
+        .join('');
       toolCards.push({
         path: item.path,
         icon: item.icon,
