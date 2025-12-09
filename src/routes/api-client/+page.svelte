@@ -1618,8 +1618,6 @@
   {#if showResponseDialog && (activeTab.responseStatus !== null || activeTab.responseBody || activeTab.error)}
     <div 
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      onclick={() => { showResponseDialog = false; }}
-      onkeydown={(e) => { if (e.key === 'Escape') { showResponseDialog = false; } }}
       role="dialog"
       aria-modal="true"
       tabindex="-1"
@@ -1730,12 +1728,7 @@
 
         <!-- 对话框底部 -->
         <div class="flex items-center justify-end gap-2 p-6 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onclick={() => { showResponseDialog = false; }}
-            class="btn-secondary"
-          >
-            {t('apiClient.close')}
-          </button>
+          <!-- Footer intentionally left without close to enforce only top-right close -->
         </div>
       </div>
     </div>

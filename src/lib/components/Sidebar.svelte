@@ -3,7 +3,7 @@
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
-import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet } from 'lucide-svelte';
+ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote } from 'lucide-svelte';
 
   const navItems = [
     { path: '/api-client', icon: Globe, key: 'nav.apiClient' },
@@ -84,6 +84,7 @@ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, 
     { path: '/crontab', icon: Calendar, key: 'nav.crontab' },
     { path: '/color', icon: Palette, key: 'nav.color' },
     { path: '/base-converter', icon: Binary, key: 'nav.baseConverter' },
+    { path: '/iban', icon: Banknote, key: 'nav.iban' },
     { path: '/roman-numeral', icon: Calculator, key: 'nav.romanNumeral' },
     { path: '/qr-code', icon: QrCode, key: 'nav.qrCode' },
     { path: '/pdf-signature', icon: FileSignature, key: 'nav.pdfSignature' },
