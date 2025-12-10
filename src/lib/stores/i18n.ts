@@ -403,7 +403,18 @@ const translations = {
       invalidRGB: 'Invalid RGB/RGBA color',
       invalidHSL: 'Invalid HSL/HSLA color',
       parseError: 'Failed to parse color',
-      convertError: 'Failed to convert color'
+      convertError: 'Failed to convert color',
+      labels: {
+        colorPicker: 'Color picker',
+        hex: 'hex',
+        rgb: 'rgb',
+        hsl: 'hsl',
+        hwb: 'hwb',
+        lch: 'lch',
+        cmyk: 'cmyk',
+        name: 'name'
+      },
+      noName: '—'
     },
     baseConverter: {
       title: 'Base Converter',
@@ -1565,7 +1576,18 @@ const translations = {
       invalidRGB: '无效的 RGB/RGBA 颜色',
       invalidHSL: '无效的 HSL/HSLA 颜色',
       parseError: '解析颜色失败',
-      convertError: '转换颜色失败'
+      convertError: '转换颜色失败',
+      labels: {
+        colorPicker: '颜色选择器',
+        hex: 'hex',
+        rgb: 'rgb',
+        hsl: 'hsl',
+        hwb: 'hwb',
+        lch: 'lch',
+        cmyk: 'cmyk',
+        name: '颜色名称'
+      },
+      noName: '—'
     },
     baseConverter: {
       title: '进制转换器',

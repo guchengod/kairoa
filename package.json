@@ -28,6 +28,7 @@
     "crypto-js": "^4.2.0",
     "emoji-data": "^0.2.0",
     "html2canvas": "^1.4.1",
+    "color-convert": "^2.0.1",
     "jspdf": "^3.0.3",
     "lucide-svelte": "^0.552.0",
     "marked": "^16.4.1",

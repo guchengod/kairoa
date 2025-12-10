@@ -1,17 +1,34 @@
 <script lang="ts">
+  import * as convert from 'color-convert';
   import { translationsStore } from '$lib/stores/i18n';
-  
-  type ColorFormat = 'hex' | 'rgb' | 'rgba' | 'hsl' | 'hsla';
-  
-  let inputFormat = $state<ColorFormat>('hex');
-  let outputFormat = $state<ColorFormat>('rgb');
-  let inputValue = $state('');
-  let outputValue = $state('');
-  let previewColor = $state('');
+
+  type ColorKey = 'hex' | 'rgb' | 'hsl' | 'hwb' | 'lch' | 'cmyk' | 'name';
+
+  const defaultHex = '#1ea54c';
+
+  let values = $state<Record<ColorKey, string>>({
+    hex: defaultHex,
+    rgb: '',
+    hsl: '',
+    hwb: '',
+    lch: '',
+    cmyk: '',
+    name: ''
+  });
   let error = $state('');
-  let copied = $state(false);
+  let copiedKey = $state<ColorKey | null>(null);
 
   let translations = $derived($translationsStore);
+
+  const rows: { key: ColorKey; label: () => string }[] = [
+    { key: 'hex', label: () => t('color.labels.hex') },
+    { key: 'rgb', label: () => t('color.labels.rgb') },
+    { key: 'hsl', label: () => t('color.labels.hsl') },
+    { key: 'hwb', label: () => t('color.labels.hwb') },
+    { key: 'lch', label: () => t('color.labels.lch') },
+    { key: 'cmyk', label: () => t('color.labels.cmyk') },
+    { key: 'name', label: () => t('color.labels.name') }
+  ];
 
   function t(key: string): string {
     const keys = key.split('.');
@@ -22,408 +39,240 @@
     return value || key;
   }
 
-  function getPlaceholder(format: ColorFormat): string {
-    const placeholders = translations?.color?.placeholder;
-    if (!placeholders) return '';
-    return placeholders[format] || '';
+  function parseNumbers(value: string, expected: number): number[] | null {
+    const matches = value.match(/-?\d+(?:\.\d+)?%?/g);
+    if (!matches || matches.length < expected) return null;
+    return matches.slice(0, expected).map((m) => parseFloat(m.replace('%', '')));
   }
 
-  // 解析 HEX 颜色
   function parseHex(hex: string): { r: number; g: number; b: number } | null {
-    hex = hex.trim().replace('#', '');
-    
-    if (hex.length === 3) {
-      hex = hex.split('').map(c => c + c).join('');
+    if (!hex) return null;
+    let normalized = hex.trim().replace('#', '');
+    if (normalized.length === 3) {
+      normalized = normalized.split('').map((c) => c + c).join('');
     }
-    
-    if (hex.length !== 6) {
-      return null;
-    }
-    
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    
-    if (isNaN(r) || isNaN(g) || isNaN(b)) {
-      return null;
-    }
-    
+    if (normalized.length !== 6) return null;
+
+    const r = parseInt(normalized.slice(0, 2), 16);
+    const g = parseInt(normalized.slice(2, 4), 16);
+    const b = parseInt(normalized.slice(4, 6), 16);
+    if ([r, g, b].some((n) => Number.isNaN(n))) return null;
     return { r, g, b };
   }
 
-  // 解析 RGB/RGBA 颜色
-  function parseRGB(rgb: string): { r: number; g: number; b: number; a?: number } | null {
-    const match = rgb.match(/(\d+(?:\.\d+)?)/g);
-    if (!match || match.length < 3) {
-      return null;
-    }
-    
-    const r = Math.round(parseFloat(match[0]));
-    const g = Math.round(parseFloat(match[1]));
-    const b = Math.round(parseFloat(match[2]));
-    const a = match[3] !== undefined ? parseFloat(match[3]) : undefined;
-    
-    if (isNaN(r) || isNaN(g) || isNaN(b) || (a !== undefined && isNaN(a))) {
-      return null;
-    }
-    
-    if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
-      return null;
-    }
-    
-    if (a !== undefined && (a < 0 || a > 1)) {
-      return null;
-    }
-    
-    return { r, g, b, a };
+  function parseRgb(input: string) {
+    const nums = parseNumbers(input, 3);
+    if (!nums) return null;
+    const [r, g, b] = nums.map((n) => Math.round(n));
+    if ([r, g, b].some((n) => n < 0 || n > 255)) return null;
+    return { r, g, b };
   }
 
-  // 解析 HSL/HSLA 颜色
-  function parseHSL(hsl: string): { h: number; s: number; l: number; a?: number } | null {
-    const match = hsl.match(/(\d+(?:\.\d+)?)/g);
-    if (!match || match.length < 3) {
-      return null;
-    }
-    
-    const h = parseFloat(match[0]);
-    const s = parseFloat(match[1]);
-    const l = parseFloat(match[2]);
-    const a = match[3] !== undefined ? parseFloat(match[3]) : undefined;
-    
-    if (isNaN(h) || isNaN(s) || isNaN(l) || (a !== undefined && isNaN(a))) {
-      return null;
-    }
-    
-    if (h < 0 || h > 360 || s < 0 || s > 100 || l < 0 || l > 100) {
-      return null;
-    }
-    
-    if (a !== undefined && (a < 0 || a > 1)) {
-      return null;
-    }
-    
-    return { h, s, l, a };
+  function parseHsl(input: string) {
+    const nums = parseNumbers(input, 3);
+    if (!nums) return null;
+    const [h, s, l] = nums;
+    if (h < 0 || h > 360 || s < 0 || s > 100 || l < 0 || l > 100) return null;
+    return { h, s, l };
   }
 
-  // RGB 转 HEX
+  function parseHwb(input: string) {
+    const nums = parseNumbers(input, 3);
+    if (!nums) return null;
+    const [h, w, b] = nums;
+    if (h < 0 || h > 360 || w < 0 || w > 100 || b < 0 || b > 100) return null;
+    return { h, w, b };
+  }
+
+  function parseLch(input: string) {
+    const nums = parseNumbers(input, 3);
+    if (!nums) return null;
+    const [l, c, h] = nums;
+    if (l < 0 || l > 100 || c < 0) return null;
+    return { l, c, h };
+  }
+
+  function parseCmyk(input: string) {
+    const nums = parseNumbers(input, 4);
+    if (!nums) return null;
+    const [c, m, y, k] = nums;
+    if ([c, m, y, k].some((n) => n < 0 || n > 100)) return null;
+    return { c, m, y, k };
+  }
+
   function rgbToHex(r: number, g: number, b: number): string {
-    return '#' + [r, g, b].map(x => {
-      const hex = x.toString(16);
-      return hex.length === 1 ? '0' + hex : hex;
-    }).join('');
+    return (
+      '#' +
+      [r, g, b]
+        .map((x) => {
+          const h = x.toString(16);
+          return h.length === 1 ? `0${h}` : h;
+        })
+        .join('')
+    );
   }
 
-  // RGB 转 HSL
-  function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
-    r /= 255;
-    g /= 255;
-    b /= 255;
+  function toFixed(value: number, digits = 2) {
+    return Number.isFinite(value) ? Number(value.toFixed(digits)) : value;
+  }
 
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    let h: number, s: number, l: number;
+  function setFromRgb(r: number, g: number, b: number) {
+    const [h, s, l] = convert.rgb.hsl([r, g, b]);
+    const [hwbH, whiteness, blackness] = convert.rgb.hwb([r, g, b]);
+    const [lVal, cVal, hVal] = convert.rgb.lch([r, g, b]);
+    const [c, m, y, k] = convert.rgb.cmyk([r, g, b]);
+    const keyword = convert.rgb.keyword([r, g, b]);
 
-    l = (max + min) / 2;
-
-    if (max === min) {
-      h = s = 0;
-    } else {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-
-      switch (max) {
-        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-        case g: h = ((b - r) / d + 2) / 6; break;
-        case b: h = ((r - g) / d + 4) / 6; break;
-        default: h = 0;
-      }
-    }
-
-    return {
-      h: Math.round(h * 360),
-      s: Math.round(s * 100),
-      l: Math.round(l * 100)
+    values = {
+      hex: rgbToHex(r, g, b),
+      rgb: `rgb(${r}, ${g}, ${b})`,
+      hsl: `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`,
+      hwb: `hwb(${Math.round(hwbH)} ${toFixed(whiteness)}% ${toFixed(blackness)}%)`,
+      lch: `lch(${toFixed(lVal)}% ${toFixed(cVal)} ${toFixed(hVal)})`,
+      cmyk: `device-cmyk(${toFixed(c)}% ${toFixed(m)}% ${toFixed(y)}% ${toFixed(k)}%)`,
+      name: keyword ?? t('color.noName')
     };
-  }
 
-  // HSL 转 RGB
-  function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
-    h /= 360;
-    s /= 100;
-    l /= 100;
-
-    let r: number, g: number, b: number;
-
-    if (s === 0) {
-      r = g = b = l;
-    } else {
-      const hue2rgb = (p: number, q: number, t: number) => {
-        if (t < 0) t += 1;
-        if (t > 1) t -= 1;
-        if (t < 1/6) return p + (q - p) * 6 * t;
-        if (t < 1/2) return q;
-        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-        return p;
-      };
-
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = 2 * l - q;
-
-      r = hue2rgb(p, q, h + 1/3);
-      g = hue2rgb(p, q, h);
-      b = hue2rgb(p, q, h - 1/3);
-    }
-
-    return {
-      r: Math.round(r * 255),
-      g: Math.round(g * 255),
-      b: Math.round(b * 255)
-    };
-  }
-
-  // 格式化为 HEX
-  function formatHex(r: number, g: number, b: number): string {
-    return rgbToHex(r, g, b);
-  }
-
-  // 格式化为 RGB
-  function formatRGB(r: number, g: number, b: number, a?: number): string {
-    if (a !== undefined) {
-      return `rgba(${r}, ${g}, ${b}, ${a})`;
-    }
-    return `rgb(${r}, ${g}, ${b})`;
-  }
-
-  // 格式化为 HSL
-  function formatHSL(h: number, s: number, l: number, a?: number): string {
-    if (a !== undefined) {
-      return `hsla(${h}, ${s}%, ${l}%, ${a})`;
-    }
-    return `hsl(${h}, ${s}%, ${l}%)`;
-  }
-
-  // 转换颜色
-  function convertColor() {
     error = '';
-    outputValue = '';
-    previewColor = '';
+  }
 
-    if (!inputValue.trim()) {
+  function convertFrom(key: ColorKey, value: string) {
+    values = { ...values, [key]: value };
+    if (!value.trim()) {
+      error = '';
       return;
     }
 
     try {
-      let rgb: { r: number; g: number; b: number; a?: number } | null = null;
-      let hsl: { h: number; s: number; l: number; a?: number } | null = null;
-
-      // 解析输入格式
-      switch (inputFormat) {
-        case 'hex':
-          rgb = parseHex(inputValue);
-          if (!rgb) {
-            error = t('color.invalidHex');
-            return;
-          }
+      switch (key) {
+        case 'hex': {
+          const rgb = parseHex(value);
+          if (!rgb) throw new Error(t('color.invalidHex'));
+          setFromRgb(rgb.r, rgb.g, rgb.b);
           break;
-        case 'rgb':
-        case 'rgba':
-          rgb = parseRGB(inputValue);
-          if (!rgb) {
-            error = t('color.invalidRGB');
-            return;
-          }
+        }
+        case 'rgb': {
+          const rgb = parseRgb(value);
+          if (!rgb) throw new Error(t('color.invalidRGB'));
+          setFromRgb(rgb.r, rgb.g, rgb.b);
           break;
-        case 'hsl':
-        case 'hsla':
-          hsl = parseHSL(inputValue);
-          if (!hsl) {
-            error = t('color.invalidHSL');
-            return;
-          }
-          if (hsl.a !== undefined) {
-            rgb = { ...hslToRgb(hsl.h, hsl.s, hsl.l), a: hsl.a };
-          } else {
-            rgb = hslToRgb(hsl.h, hsl.s, hsl.l);
-          }
+        }
+        case 'hsl': {
+          const hsl = parseHsl(value);
+          if (!hsl) throw new Error(t('color.invalidHSL'));
+          const [r, g, b] = convert.hsl.rgb([hsl.h, hsl.s, hsl.l]);
+          setFromRgb(Math.round(r), Math.round(g), Math.round(b));
           break;
-      }
-
-      if (!rgb) {
-        error = t('color.parseError');
-        return;
-      }
-
-      // 转换为输出格式
-      switch (outputFormat) {
-        case 'hex':
-          outputValue = formatHex(rgb.r, rgb.g, rgb.b);
-          previewColor = outputValue;
+        }
+        case 'hwb': {
+          const hwb = parseHwb(value);
+          if (!hwb) throw new Error(t('color.invalidHSL'));
+          const [r, g, b] = convert.hwb.rgb([hwb.h, hwb.w, hwb.b]);
+          setFromRgb(Math.round(r), Math.round(g), Math.round(b));
           break;
-        case 'rgb':
-          outputValue = formatRGB(rgb.r, rgb.g, rgb.b);
-          previewColor = formatRGB(rgb.r, rgb.g, rgb.b);
+        }
+        case 'lch': {
+          const lch = parseLch(value);
+          if (!lch) throw new Error(t('color.parseError'));
+          const [r, g, b] = convert.lch.rgb([lch.l, lch.c, lch.h]);
+          setFromRgb(Math.round(r), Math.round(g), Math.round(b));
           break;
-        case 'rgba':
-          const alpha = rgb.a !== undefined ? rgb.a : 1;
-          outputValue = formatRGB(rgb.r, rgb.g, rgb.b, alpha);
-          previewColor = formatRGB(rgb.r, rgb.g, rgb.b, alpha);
+        }
+        case 'cmyk': {
+          const cmyk = parseCmyk(value);
+          if (!cmyk) throw new Error(t('color.parseError'));
+          const [r, g, b] = convert.cmyk.rgb([cmyk.c, cmyk.m, cmyk.y, cmyk.k]);
+          setFromRgb(Math.round(r), Math.round(g), Math.round(b));
           break;
-        case 'hsl':
-          hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-          outputValue = formatHSL(hsl.h, hsl.s, hsl.l);
-          previewColor = formatRGB(rgb.r, rgb.g, rgb.b);
+        }
+        case 'name': {
+          const rgb = convert.keyword.rgb(value.trim());
+          if (!rgb) throw new Error(t('color.parseError'));
+          setFromRgb(rgb[0], rgb[1], rgb[2]);
           break;
-        case 'hsla':
-          hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-          const hslAlpha = rgb.a !== undefined ? rgb.a : 1;
-          outputValue = formatHSL(hsl.h, hsl.s, hsl.l, hslAlpha);
-          previewColor = formatRGB(rgb.r, rgb.g, rgb.b, hslAlpha);
-          break;
+        }
       }
     } catch (e) {
       error = e instanceof Error ? e.message : t('color.convertError');
     }
   }
 
-  // 监听输入变化
-  $effect(() => {
-    convertColor();
-  });
+  function onHexChange(value: string) {
+    convertFrom('hex', value.startsWith('#') ? value : `#${value}`);
+  }
 
-  async function copyToClipboard() {
-    if (!outputValue) return;
-    
+  function onPickerChange(value: string) {
+    convertFrom('hex', value);
+  }
+
+  async function copyValue(key: ColorKey) {
+    if (!values[key]) return;
     try {
-      await navigator.clipboard.writeText(outputValue);
-      copied = true;
+      await navigator.clipboard.writeText(values[key]);
+      copiedKey = key;
+      // keep the value stable during async to avoid race with rapid edits
+      const currentKey = key;
       setTimeout(() => {
-        copied = false;
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to copy:', error);
+        if (copiedKey === currentKey) copiedKey = null;
+      }, 800);
+    } catch (err) {
+      console.error('Copy failed', err);
     }
   }
 
-  function clear() {
-    inputValue = '';
-    outputValue = '';
-    previewColor = '';
-    error = '';
+  function clearField(key: ColorKey) {
+    values = { ...values, [key]: '' };
   }
+
+  function resetAll() {
+    convertFrom('hex', defaultHex);
+  }
+
+  // initialize once with default color
+  convertFrom('hex', values.hex);
 </script>
 
-<div class="flex flex-col h-full w-full ml-0 mr-0 p-2">
-  <div class="card flex-1 flex flex-col">
-    <div class="flex-1 flex flex-col space-y-4">
-      <!-- 格式选择 -->
-      <div class="flex gap-4 items-center">
-        <div class="flex-1">
-          <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-            {t('color.inputFormat')}
-          </label>
-          <select
-            bind:value={inputFormat}
-            class="input"
-          >
-            <option value="hex">HEX</option>
-            <option value="rgb">RGB</option>
-            <option value="rgba">RGBA</option>
-            <option value="hsl">HSL</option>
-            <option value="hsla">HSLA</option>
-          </select>
-        </div>
-        <div class="flex-1">
-          <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-            {t('color.outputFormat')}
-          </label>
-          <select
-            bind:value={outputFormat}
-            class="input"
-          >
-            <option value="hex">HEX</option>
-            <option value="rgb">RGB</option>
-            <option value="rgba">RGBA</option>
-            <option value="hsl">HSL</option>
-            <option value="hsla">HSLA</option>
-          </select>
-        </div>
+<div class="flex flex-col h-full w-full p-2">
+  <div class="card flex-1 flex flex-col space-y-6">
+    <div class="flex items-center gap-3">
+      <div class="w-28 text-right text-sm font-medium text-gray-700 dark:text-gray-300">
+        {t('color.labels.colorPicker')}:
       </div>
-
-      <!-- 左右布局：输入 - 输出 -->
-      <div class="flex-1 grid grid-cols-12 gap-4 items-stretch">
-        <!-- 左侧输入区域 -->
-        <div class="col-span-5 flex flex-col space-y-2">
-          <div class="flex items-center justify-between">
-            <label class="block text-base font-bold text-gray-700 dark:text-gray-300">
-              {t('color.input')}
-            </label>
-          </div>
-          <div class="relative flex-1">
-            <textarea
-              bind:value={inputValue}
-              placeholder={getPlaceholder(inputFormat)}
-              class="textarea h-full resize-none font-mono text-sm"
-            ></textarea>
-          </div>
-        </div>
-
-        <!-- 中间预览区域 -->
-        <div class="col-span-2 flex flex-col justify-center items-center gap-3 px-2">
-          {#if previewColor}
-            <div 
-              class="w-24 h-24 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-lg"
-              style="background-color: {previewColor};"
-            ></div>
-          {:else}
-            <div class="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
-              <span class="text-xs text-gray-400 dark:text-gray-500">Preview</span>
-            </div>
-          {/if}
-          <button onclick={clear} class="btn-secondary">
-            {t('color.clear')}
-          </button>
-        </div>
-
-        <!-- 右侧输出区域 -->
-        <div class="col-span-5 flex flex-col space-y-2">
-          <div class="flex items-center justify-between">
-            <label class="block text-base font-bold text-gray-700 dark:text-gray-300">
-              {t('color.output')}
-            </label>
-            {#if outputValue}
-              <button
-                onclick={copyToClipboard}
-                class="btn-secondary text-xs px-3 py-1.5 transition-all duration-200 {copied ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
-              >
-                {#if copied}
-                  <span class="flex items-center gap-1">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    {t('common.copied')}
-                  </span>
-                {:else}
-                  {t('common.copy')}
-                {/if}
-              </button>
-            {/if}
-          </div>
-          <div class="relative flex-1">
-            <textarea
-              readonly
-              value={outputValue}
-              class="textarea h-full resize-none font-mono text-sm bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed"
-            ></textarea>
-          </div>
-        </div>
+      <div class="flex-1">
+        <input
+          type="color"
+          class="h-10 w-full rounded-md border border-gray-300 dark:border-gray-700 cursor-pointer"
+          bind:value={values.hex}
+          oninput={(e) => onPickerChange((e.target as HTMLInputElement).value)}
+          style={`background: ${values.hex};`}
+        />
       </div>
-
-      {#if error}
-        <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p class="text-sm text-red-800 dark:text-red-200">{error}</p>
-        </div>
-      {/if}
     </div>
+
+    <div class="space-y-2">
+      {#each rows as row}
+        <div class="flex items-center gap-3">
+          <div class="w-28 text-right text-base font-medium text-gray-800 dark:text-gray-100">
+            {row.label()}:
+          </div>
+          <input
+            class="input flex-1 font-mono text-sm"
+            bind:value={values[row.key]}
+            oninput={(e) => convertFrom(row.key, (e.target as HTMLInputElement).value)}
+          />
+          <div class="flex items-center gap-2">
+            <button class="btn-secondary px-3 py-2" onclick={() => copyValue(row.key)}>
+              {copiedKey === row.key ? t('common.copied') : t('common.copy')}
+            </button>
+          </div>
+        </div>
+      {/each}
+    </div>
+
+    {#if error}
+      <div class="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded">
+        <p class="text-sm text-red-700 dark:text-red-200">{error}</p>
+      </div>
+    {/if}
   </div>
 </div>
-

@@ -265,9 +265,9 @@
 </script>
 
 <div class="h-full w-full p-4">
-  <div class="max-w-7xl mx-auto h-full flex flex-col gap-4 flex-1 min-h-0">
+  <div class="max-w-7xl mx-auto h-full flex flex-col gap-4">
 
-    <div class="card flex flex-col gap-4 flex-1 min-h-0">
+    <div class="card flex flex-col gap-4">
       <div class="flex flex-wrap items-center gap-3 justify-between">
         <div class="flex flex-wrap items-center gap-3">
           <div class="flex items-center gap-2">
@@ -337,8 +337,8 @@
         </div>
       {/if}
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
-        <div class="flex flex-col h-full min-h-0">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-[420px]">
+        <div class="flex flex-col h-full">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
               {mode === 'csv2json' ? 'CSV' : 'JSON'}
@@ -346,7 +346,7 @@
           </div>
           <textarea
             bind:value={inputText}
-            class="input font-mono text-sm h-full flex-1 min-h-0"
+            class="input font-mono text-sm h-full min-h-[240px]"
             placeholder={getInputPlaceholder()}
             spellcheck="false"
           ></textarea>
@@ -359,7 +359,7 @@
           />
         </div>
 
-        <div class="flex flex-col h-full min-h-0">
+        <div class="flex flex-col h-full">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
               {mode === 'csv2json' ? 'JSON' : 'CSV'}
@@ -368,7 +368,7 @@
           <textarea
             value={outputText}
             readonly
-            class="input font-mono text-sm h-full flex-1 min-h-0"
+            class="input font-mono text-sm h-full min-h-[240px]"
             placeholder={t('dataConverter.outputPlaceholder')}
             spellcheck="false"
           ></textarea>
