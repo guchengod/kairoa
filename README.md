@@ -5,7 +5,7 @@
 </p>
 
 <h1 align="center">
-  💫 Kairoa ➟ Developer Toolbox 💫
+  Kairoa ➟ Developer Toolbox
 </h1>
 
 <p align="center">
@@ -96,9 +96,28 @@
 - Displays open ports with response latency
 
 ### 🎨 Color Converter
-- Convert between color formats: HEX, RGB, RGBA, HSL, HSLA
-- Color preview
+- Convert between color formats: HEX, RGB, HSL, HWB, LCH, CMYK, color names
+- Color picker with real-time preview
 - Bidirectional conversion between any supported format
+- All formats can be edited and converted in real-time
+
+### 🔒 Password Strength Checker
+- Real-time password strength assessment
+- Multiple security checks: length, uppercase, lowercase, numbers, special characters, character variety
+- Common password detection
+- Sequential and repeated character detection
+- Estimated crack time calculation
+- Improvement suggestions for weak passwords
+
+### 📜 Certificate Viewer
+- View and inspect certificate files (PEM, CRT, CER, KEY, CERT, DER, P12, PFX)
+- Display certificate details: subject, issuer, validity, serial number, algorithm, key size
+- SHA-256 fingerprint calculation
+- Certificate validity status (valid/expired/not yet valid)
+- Extension information display
+- File drag-and-drop support
+- All processing done offline
+
 ### 🔢 Base Converter
 - Convert between number bases: Binary (2), Octal (8), Decimal (10), Hexadecimal (16)
 - Automatic prefix detection and removal (0b, 0o, 0x)
@@ -110,9 +129,9 @@
 - Export in PEM or DER format
 - Copy keys to clipboard
 
-## Interfacegit 
+## Interface
 
-- 🌓 **Light/Dark Theme**: Switch between light and dark modes
+- 🌓 **Light/Dark Theme**: Switch between light and dark modes (6 themes available)
 - 🌍 **Internationalization**: Support for English and Chinese
 - 🎨 **Modern UI**: Built with Tailwind CSS
 - 📱 **Responsive Design**: Clean and intuitive interface
