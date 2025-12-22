@@ -1565,20 +1565,26 @@
       {#if showBulkHeaderDialog}
         <div 
           class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onclick={() => { showBulkHeaderDialog = false; bulkHeaderText = ''; }}
-          onkeydown={(e) => { if (e.key === 'Escape') { showBulkHeaderDialog = false; bulkHeaderText = ''; } }}
           role="dialog"
           aria-modal="true"
           tabindex="-1"
         >
           <div 
             class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4"
-            onclick={(e) => e.stopPropagation()}
             role="none"
           >
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              {t('apiClient.bulkAddHeaders')}
-            </h3>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {t('apiClient.bulkAddHeaders')}
+              </h3>
+              <button
+                onclick={() => { showBulkHeaderDialog = false; bulkHeaderText = ''; }}
+                class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                aria-label={t('apiClient.close')}
+              >
+                <X class="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
               {t('apiClient.bulkAddHeadersHint')}
             </p>

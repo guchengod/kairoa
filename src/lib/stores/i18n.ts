@@ -27,6 +27,7 @@ const translations = {
       imageToolsDesc: 'Rotate and scale images',
       colorDesc: 'Convert between color formats (HEX, RGB, HSL)',
       baseConverterDesc: 'Convert between number bases (binary, octal, decimal, hex)',
+      coordinateConverterDesc: 'Convert between map coordinate systems (WGS84, GCJ02, BD09, Web Mercator)',
       ibanDesc: 'Validate and parse IBAN numbers with checksum checks',
       qrCodeDesc: 'Generate QR codes from text or URLs',
       pdfSignatureDesc: 'Inspect and verify digital signatures embedded in PDF files',
@@ -56,6 +57,7 @@ const translations = {
       crontab: 'Crontab Calculator',
       color: 'Color Converter',
       baseConverter: 'Base Converter',
+      coordinateConverter: 'Coordinate Converter',
       crypto: 'Crypto',
       jwt: 'JWT Decoder',
       textDiff: 'Text Diff',
@@ -435,6 +437,32 @@ const translations = {
       invalidInput: 'Invalid {base} number',
       parseError: 'Failed to parse number',
       convertError: 'Failed to convert number'
+    },
+    coordinateConverter: {
+      title: 'Coordinate Converter',
+      description: 'Convert between different map coordinate systems',
+      inputSystem: 'Input Coordinate System',
+      outputSystem: 'Output Coordinate System',
+      input: 'Input Coordinates',
+      output: 'Output Coordinates',
+      latitude: 'Latitude',
+      longitude: 'Longitude',
+      latitudePlaceholder: 'e.g., 39.9042',
+      longitudePlaceholder: 'e.g., 116.4074',
+      clear: 'Clear',
+      info: {
+        title: 'Coordinate System Information',
+        wgs84: 'GPS coordinate system, international standard',
+        gcj02: 'Mars coordinate system, used by Gaode and Tencent maps in China',
+        bd09: 'Baidu coordinate system, used by Baidu maps',
+        webMercator: 'Web Mercator projection, commonly used in web maps'
+      },
+      errors: {
+        invalidInput: 'Invalid coordinate input',
+        invalidLatitude: 'Latitude must be between -90 and 90',
+        invalidLongitude: 'Longitude must be between -180 and 180',
+        convertError: 'Failed to convert coordinates'
+      }
     },
     iban: {
       title: 'IBAN Validator & Parser',
@@ -1348,6 +1376,7 @@ const translations = {
       imageToolsDesc: '旋转和缩放图片',
       colorDesc: '颜色格式转换（HEX、RGB、HSL）',
       baseConverterDesc: '数字进制转换（二进制、八进制、十进制、十六进制）',
+      coordinateConverterDesc: '地图坐标系转换（WGS84、GCJ02、BD09、Web Mercator）',
       ibanDesc: '校验并解析 IBAN 账号，含校验位验证',
       qrCodeDesc: '从文本或 URL 生成二维码',
       pdfSignatureDesc: '检查 PDF 中的数字签名并验证完整性',
@@ -1376,6 +1405,7 @@ const translations = {
       crontab: 'Crontab 计算器',
       color: '颜色转换',
       baseConverter: '进制转换',
+      coordinateConverter: '坐标系转换',
       crypto: '加解密',
       jwt: 'JWT 解码器',
       textDiff: '文本差异对比',
@@ -1755,6 +1785,32 @@ const translations = {
       invalidInput: '无效的 {base} 进制数字',
       parseError: '解析数字失败',
       convertError: '转换数字失败'
+    },
+    coordinateConverter: {
+      title: '坐标系转换器',
+      description: '在不同地图坐标系之间进行转换',
+      inputSystem: '输入坐标系',
+      outputSystem: '输出坐标系',
+      input: '输入坐标',
+      output: '输出坐标',
+      latitude: '纬度',
+      longitude: '经度',
+      latitudePlaceholder: '例如：39.9042',
+      longitudePlaceholder: '例如：116.4074',
+      clear: '清空',
+      info: {
+        title: '坐标系说明',
+        wgs84: 'GPS 坐标系，国际标准',
+        gcj02: '火星坐标系，中国高德、腾讯地图使用',
+        bd09: '百度坐标系，百度地图使用',
+        webMercator: 'Web Mercator 投影，Web 地图常用'
+      },
+      errors: {
+        invalidInput: '无效的坐标输入',
+        invalidLatitude: '纬度必须在 -90 到 90 之间',
+        invalidLongitude: '经度必须在 -180 到 180 之间',
+        convertError: '坐标转换失败'
+      }
     },
     iban: {
       title: 'IBAN 校验与解析',
