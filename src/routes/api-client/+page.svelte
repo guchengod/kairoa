@@ -182,6 +182,30 @@
   let showDropdown = $state(false);
   let requestView = $state<'headers' | 'body'>('headers');
   let showResponseDialog = $state(false);
+  let bodyTextareaRef = $state<HTMLTextAreaElement | null>(null);
+
+  // 自动调整 textarea 高度，保持最小高度 150px，且不超过视口底部
+  function autoResizeTextarea(el: HTMLTextAreaElement | null) {
+    if (!el) return;
+    // 先重置高度以获取正确的 scrollHeight
+    el.style.height = 'auto';
+
+    const minHeight = 150;
+    const contentHeight = el.scrollHeight;
+
+    // 计算可用空间：窗口高度 - 当前元素距顶部的位置 - 适当的底部留白（24px）
+    const rect = el.getBoundingClientRect();
+    const available = window.innerHeight - rect.top - 24;
+    const maxHeight = Math.max(minHeight, available);
+
+    el.style.height = `${Math.min(Math.max(contentHeight, minHeight), maxHeight)}px`;
+  }
+
+  // 切换 Body 类型或内容变化时自适应高度
+  $effect(() => {
+    bodyTextareaRef;
+    setTimeout(() => autoResizeTextarea(bodyTextareaRef), 0);
+  });
 
   function parseBulkHeaders(text: string): Header[] {
     const headers: Header[] = [];
@@ -1435,21 +1459,30 @@
 
             {#if activeTab.bodyType === 'json'}
               <textarea
+                bind:this={bodyTextareaRef}
                 bind:value={activeTab.bodyJson}
                 placeholder={t('apiClient.jsonPlaceholder')}
                 class="textarea font-mono text-sm min-h-[150px]"
+                oninput={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
+                onfocus={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
               ></textarea>
             {:else if activeTab.bodyType === 'text'}
               <textarea
+                bind:this={bodyTextareaRef}
                 bind:value={activeTab.bodyText}
                 placeholder={t('apiClient.textPlaceholder')}
                 class="textarea font-mono text-sm min-h-[150px]"
+                oninput={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
+                onfocus={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
               ></textarea>
             {:else if activeTab.bodyType === 'xml'}
               <textarea
+                bind:this={bodyTextareaRef}
                 bind:value={activeTab.bodyXml}
                 placeholder={t('apiClient.xmlPlaceholder')}
                 class="textarea font-mono text-sm min-h-[150px]"
+                oninput={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
+                onfocus={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
               ></textarea>
             {:else if activeTab.bodyType === 'form-data' || activeTab.bodyType === 'url-encoded'}
               <div>
