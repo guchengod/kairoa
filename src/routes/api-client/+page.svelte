@@ -183,6 +183,9 @@
   let requestView = $state<'headers' | 'body'>('headers');
   let showResponseDialog = $state(false);
   let bodyTextareaRef = $state<HTMLTextAreaElement | null>(null);
+  const STORAGE_KEY = 'apiClient.tabs.v1';
+  const STORAGE_ACTIVE_KEY = 'apiClient.activeTabId.v1';
+  let hasLoadedFromStorage = false;
 
   // 自动调整 textarea 高度，保持最小高度 150px，且不超过视口底部
   function autoResizeTextarea(el: HTMLTextAreaElement | null) {
@@ -200,6 +203,68 @@
 
     el.style.height = `${Math.min(Math.max(contentHeight, minHeight), maxHeight)}px`;
   }
+
+  // 从本地存储读取已保存的请求
+  function loadSavedTabs() {
+    if (!browser || hasLoadedFromStorage) return;
+    hasLoadedFromStorage = true;
+
+    try {
+      const savedTabs = localStorage.getItem(STORAGE_KEY);
+      const savedActive = localStorage.getItem(STORAGE_ACTIVE_KEY);
+
+      if (savedTabs) {
+        const parsed = JSON.parse(savedTabs) as TabData[];
+        // 确保必要字段存在，并重置不可序列化的 file 字段
+        tabs = parsed.map((tab) => ({
+          ...tab,
+          formData: (tab.formData || []).map((item) => ({
+            ...item,
+            file: null
+          })),
+          isSending: false
+        }));
+      }
+
+      if (savedActive) {
+        activeTabId = savedActive;
+      }
+    } catch (error) {
+      console.error('Failed to load saved API client tabs:', error);
+    }
+  }
+
+  // 保存当前请求到本地存储
+  function saveTabs() {
+    if (!browser) return;
+    try {
+      const sanitized = tabs.map((tab) => ({
+        ...tab,
+        formData: (tab.formData || []).map(({ key, value, enabled, type }) => ({
+          key,
+          value,
+          enabled,
+          type
+        })),
+        file: undefined,
+        isSending: false
+      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+      localStorage.setItem(STORAGE_ACTIVE_KEY, activeTabId);
+    } catch (error) {
+      console.error('Failed to save API client tabs:', error);
+    }
+  }
+
+  // 首次加载时从本地存储恢复
+  loadSavedTabs();
+
+  // tabs 或 activeTabId 变化时保存
+  $effect(() => {
+    tabs;
+    activeTabId;
+    saveTabs();
+  });
 
   // 切换 Body 类型或内容变化时自适应高度
   $effect(() => {
@@ -1289,7 +1354,10 @@
                 bind:this={dropdownRef}
                 data-dropdown
                 class="fixed bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[200px] z-[9999]"
+                role="menu"
+                tabindex="-1"
                 onclick={(e) => e.stopPropagation()}
+                onkeydown={(e) => e.stopPropagation()}
               >
                 <!-- 三角形指示器 -->
                 <div class="absolute -top-1 right-4 w-2 h-2 bg-white dark:bg-gray-800 border-l border-t border-gray-200 dark:border-gray-700 transform rotate-45"></div>
