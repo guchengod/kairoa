@@ -45,7 +45,8 @@ const translations = {
       mockGeneratorDesc: 'Generate mock test data with customizable templates and batch generation',
       dataConverterDesc: 'Convert between CSV and JSON with delimiter options',
       websocketDesc: 'Test WebSocket connections, send and receive messages in real-time',
-      ipLookupDesc: 'Query IP address and domain information, including location, ISP, and network details'
+      ipLookupDesc: 'Query IP address and domain information, including location, ISP, and network details',
+      gitCommandsDesc: 'Generate Git commands with customizable options for common operations'
     },
     nav: {
       hash: 'Hash Calculator',
@@ -67,6 +68,7 @@ const translations = {
       apiClient: 'REST API Client',
       websocket: 'WebSocket Tester',
       ipLookup: 'IP/Domain Lookup',
+      gitCommands: 'Git Commands',
       imageTools: 'Image Tools',
       qrCode: 'QR Code Generator',
       iban: 'IBAN Validator',
@@ -896,6 +898,464 @@ const translations = {
         corsError: 'CORS error: Please use the desktop app version for IP lookup'
       }
     },
+    gitCommands: {
+      title: 'Git Commands Generator',
+      description: 'Generate Git commands with customizable options',
+      commandType: 'Command Type',
+      generatedCommand: 'Generated Command',
+      commandHint: 'The command is generated automatically based on your selections. Copy and paste it into your terminal.',
+      description: 'Description',
+      clear: 'Clear',
+      descriptions: {
+        commit: 'Record changes to the repository. Creates a new commit with staged changes and a commit message.',
+        add: 'Add file contents to the staging area. Prepares changes to be committed.',
+        push: 'Upload local branch commits to a remote repository. Updates the remote with your local changes.',
+        pull: 'Fetch and integrate changes from a remote repository into the current branch.',
+        fetch: 'Download objects and refs from a remote repository without merging them into your local branch.',
+        branch: 'List, create, or delete branches. Branches allow you to work on different features simultaneously.',
+        checkout: 'Switch branches or restore working tree files. Can also create new branches.',
+        merge: 'Join two or more development histories together. Combines changes from different branches.',
+        rebase: 'Reapply commits on top of another base tip. Creates a linear history by moving commits.',
+        tag: 'Create, list, or delete tags. Tags mark specific points in history, typically for releases.',
+        log: 'Show commit logs. Displays the history of commits in various formats.',
+        status: 'Show the working tree status. Displays which files have been modified, staged, or are untracked.',
+        diff: 'Show changes between commits, commit and working tree, etc. Displays the differences between versions.',
+        show: 'Show various types of objects. Displays information about commits, tags, or trees.',
+        revert: 'Revert some existing commits. Creates new commits that undo the changes of specified commits.',
+        cherryPick: 'Apply the changes introduced by some existing commits. Picks specific commits from one branch to another.',
+        clone: 'Clone a repository into a new directory. Creates a copy of a remote repository locally.',
+        init: 'Create an empty Git repository or reinitialize an existing one. Initializes a new repository.',
+        remote: 'Manage set of tracked repositories. Configure remote repositories for your local repository.',
+        stash: 'Stash the changes in a dirty working directory away. Temporarily saves uncommitted changes.',
+        reset: 'Reset current HEAD to the specified state. Moves the branch pointer and optionally updates the index and working tree.',
+        rm: 'Remove files from the working tree and from the index. Removes files from Git tracking.',
+        mv: 'Move or rename a file, a directory, or a symlink. Moves or renames files in Git.',
+        clean: 'Remove untracked files from the working tree. Cleans up files not tracked by Git.',
+        config: 'Get and set repository or global options. Configure Git settings for your repository or globally.',
+        submodule: 'Initialize, update, or inspect submodules. Manages nested Git repositories within your project.',
+        worktree: 'Manage multiple working trees attached to the same repository. Allows working on multiple branches simultaneously.',
+        blame: 'Show what revision and author last modified each line of a file. Displays line-by-line revision information.',
+        grep: 'Print lines matching a pattern. Searches for text patterns in the repository.',
+        bisect: 'Use binary search to find the commit that introduced a bug. Helps locate problematic commits efficiently.',
+        reflog: 'Manage reflog information. Shows a log of where your HEAD and branch references have been.',
+        archive: 'Create an archive of files from a named tree. Exports repository contents as a tar or zip file.',
+        describe: 'Give an object a human readable name based on an available ref. Creates a version string from tags.',
+        shortlog: 'Summarize git log output. Groups commits by author and shows a summary.',
+        switch: 'Switch branches. Modern alternative to checkout for switching branches (Git 2.23+).',
+        restore: 'Restore working tree files. Modern alternative to checkout for restoring files (Git 2.23+).',
+        apply: 'Apply a patch to files and/or to the index. Applies patches created by format-patch or diff.',
+        formatPatch: 'Prepare patches for e-mail submission. Creates patch files suitable for email distribution.',
+        notes: 'Add or inspect object notes. Attaches notes to commits without modifying the commit itself.',
+        bundle: 'Move objects and refs by archive. Packages a repository for transfer without a network connection.',
+        sparseCheckout: 'Initialize and modify the sparse-checkout configuration. Enables partial checkout of large repositories.',
+        maintenance: 'Run tasks to optimize Git repository data. Automates repository maintenance tasks (Git 2.31+).'
+      },
+      types: {
+        commit: 'Commit',
+        add: 'Add',
+        push: 'Push',
+        pull: 'Pull',
+        fetch: 'Fetch',
+        branch: 'Branch',
+        checkout: 'Checkout',
+        merge: 'Merge',
+        rebase: 'Rebase',
+        tag: 'Tag',
+        log: 'Log',
+        status: 'Status',
+        diff: 'Diff',
+        show: 'Show',
+        revert: 'Revert',
+        cherryPick: 'Cherry-pick',
+        clone: 'Clone',
+        init: 'Init',
+        remote: 'Remote',
+        stash: 'Stash',
+        reset: 'Reset',
+        rm: 'Remove',
+        mv: 'Move',
+        clean: 'Clean',
+        config: 'Config',
+        submodule: 'Submodule',
+        worktree: 'Worktree',
+        blame: 'Blame',
+        grep: 'Grep',
+        bisect: 'Bisect',
+        reflog: 'Reflog',
+        archive: 'Archive',
+        describe: 'Describe',
+        shortlog: 'Shortlog',
+        switch: 'Switch',
+        restore: 'Restore',
+        apply: 'Apply',
+        formatPatch: 'Format-patch',
+        notes: 'Notes',
+        bundle: 'Bundle',
+        sparseCheckout: 'Sparse-checkout',
+        maintenance: 'Maintenance'
+      },
+      commit: {
+        message: 'Commit Message',
+        messagePlaceholder: 'Enter commit message...',
+        addAll: 'Add all files',
+        amend: 'Amend previous commit'
+      },
+      push: {
+        remote: 'Remote',
+        branch: 'Branch',
+        branchPlaceholder: 'Leave empty for current branch',
+        force: 'Force push',
+        tags: 'Push tags'
+      },
+      pull: {
+        remote: 'Remote',
+        branch: 'Branch',
+        branchPlaceholder: 'Leave empty for current branch',
+        rebase: 'Rebase instead of merge'
+      },
+      branch: {
+        operation: 'Operation',
+        create: 'Create',
+        checkout: 'Checkout',
+        delete: 'Delete',
+        rename: 'Rename',
+        list: 'List',
+        name: 'Branch Name',
+        namePlaceholder: 'Enter branch name...',
+        oldName: 'Old Name',
+        oldNamePlaceholder: 'Enter old branch name...',
+        showAll: 'Show all branches'
+      },
+      merge: {
+        branch: 'Branch to Merge',
+        branchPlaceholder: 'Enter branch name...',
+        noFF: 'No fast-forward',
+        squash: 'Squash merge'
+      },
+      tag: {
+        operation: 'Operation',
+        create: 'Create',
+        delete: 'Delete',
+        list: 'List',
+        name: 'Tag Name',
+        namePlaceholder: 'Enter tag name...',
+        message: 'Tag Message',
+        messagePlaceholder: 'Enter tag message...',
+        annotated: 'Annotated tag'
+      },
+      log: {
+        count: 'Number of commits',
+        graph: 'Show graph',
+        oneline: 'One line per commit',
+        author: 'Author',
+        authorPlaceholder: 'Filter by author...',
+        search: 'Search',
+        searchPlaceholder: 'Search in commit messages...'
+      },
+      status: {
+        short: 'Short format'
+      },
+      clone: {
+        url: 'Repository URL',
+        urlPlaceholder: 'https://github.com/user/repo.git',
+        directory: 'Directory',
+        directoryPlaceholder: 'Leave empty for default',
+        branch: 'Branch',
+        branchPlaceholder: 'Leave empty for default branch',
+        depth: 'Depth',
+        depthPlaceholder: 'Shallow clone depth'
+      },
+      remote: {
+        operation: 'Operation',
+        add: 'Add',
+        remove: 'Remove',
+        setUrl: 'Set URL',
+        list: 'List',
+        name: 'Remote Name',
+        url: 'Repository URL',
+        urlPlaceholder: 'https://github.com/user/repo.git'
+      },
+      stash: {
+        operation: 'Operation',
+        save: 'Save',
+        list: 'List',
+        pop: 'Pop',
+        apply: 'Apply',
+        drop: 'Drop',
+        message: 'Stash Message',
+        messagePlaceholder: 'Enter stash message...'
+      },
+      reset: {
+        mode: 'Reset Mode',
+        soft: 'Soft (keep changes in staging)',
+        mixed: 'Mixed (keep changes in working directory)',
+        hard: 'Hard (discard all changes)',
+        target: 'Target',
+        targetPlaceholder: 'HEAD, commit hash, or branch name'
+      },
+      fetch: {
+        remote: 'Remote',
+        branch: 'Branch',
+        branchPlaceholder: 'Leave empty for all branches',
+        all: 'Fetch all remotes',
+        prune: 'Prune deleted branches',
+        tags: 'Fetch tags'
+      },
+      checkout: {
+        target: 'Target (Branch/Commit)',
+        targetPlaceholder: 'Branch name or commit hash',
+        branch: 'Branch Name',
+        branchPlaceholder: 'Enter branch name...',
+        file: 'File Path',
+        filePlaceholder: 'Enter file path to checkout...',
+        create: 'Create new branch'
+      },
+      add: {
+        files: 'Files',
+        filesPlaceholder: 'Enter file paths (space-separated)...',
+        all: 'Add all files',
+        patch: 'Interactive patch mode',
+        update: 'Update tracked files only'
+      },
+      diff: {
+        file: 'File',
+        filePlaceholder: 'Enter file path...',
+        commit1: 'Commit 1',
+        commit1Placeholder: 'Leave empty for working directory',
+        commit2: 'Commit 2',
+        commit2Placeholder: 'Leave empty for HEAD',
+        staged: 'Show staged changes',
+        stat: 'Show statistics'
+      },
+      show: {
+        commit: 'Commit',
+        file: 'File',
+        filePlaceholder: 'Enter file path...',
+        stat: 'Show statistics',
+        nameOnly: 'Show file names only'
+      },
+      revert: {
+        commit: 'Commit',
+        commitPlaceholder: 'Enter commit hash...',
+        noCommit: 'No commit (stage changes only)',
+        noEdit: 'No edit (use default message)'
+      },
+      cherryPick: {
+        commit: 'Commit',
+        commitPlaceholder: 'Enter commit hash...',
+        noCommit: 'No commit (stage changes only)',
+        edit: 'Edit commit message'
+      },
+      rebase: {
+        branch: 'Branch',
+        branchPlaceholder: 'Enter branch name...',
+        onto: 'Onto',
+        ontoPlaceholder: 'Base commit or branch',
+        interactive: 'Interactive rebase',
+        continue: 'Continue rebase',
+        abort: 'Abort rebase'
+      },
+      config: {
+        operation: 'Operation',
+        get: 'Get',
+        set: 'Set',
+        unset: 'Unset',
+        list: 'List',
+        key: 'Config Key',
+        keyPlaceholder: 'e.g., user.name',
+        value: 'Config Value',
+        valuePlaceholder: 'Enter value...',
+        global: 'Global config',
+        local: 'Local config'
+      },
+      init: {
+        directory: 'Directory',
+        directoryPlaceholder: 'Leave empty for current directory',
+        template: 'Template',
+        templatePlaceholder: 'Template directory path',
+        bare: 'Bare repository'
+      },
+      rm: {
+        files: 'Files',
+        filesPlaceholder: 'Enter file paths (space-separated)...',
+        cached: 'Remove from index only',
+        recursive: 'Recursive',
+        force: 'Force removal'
+      },
+      mv: {
+        source: 'Source',
+        sourcePlaceholder: 'Enter source path...',
+        destination: 'Destination',
+        destinationPlaceholder: 'Enter destination path...'
+      },
+      clean: {
+        dryRun: 'Dry run (show what would be removed)',
+        force: 'Force removal',
+        interactive: 'Interactive mode',
+        directory: 'Remove directories'
+      },
+      submodule: {
+        operation: 'Operation',
+        add: 'Add',
+        update: 'Update',
+        init: 'Initialize',
+        deinit: 'Deinitialize',
+        status: 'Status',
+        url: 'Submodule URL',
+        urlPlaceholder: 'Enter submodule repository URL...',
+        path: 'Path',
+        pathPlaceholder: 'Enter submodule path...',
+        recursive: 'Recursive update'
+      },
+      worktree: {
+        operation: 'Operation',
+        add: 'Add',
+        list: 'List',
+        remove: 'Remove',
+        prune: 'Prune',
+        path: 'Path',
+        pathPlaceholder: 'Enter worktree path...',
+        branch: 'Branch',
+        branchPlaceholder: 'Enter branch name (use -b to create new)'
+      },
+      blame: {
+        file: 'File',
+        filePlaceholder: 'Enter file path...',
+        lineStart: 'Line Start',
+        lineStartPlaceholder: 'Start line number',
+        lineEnd: 'Line End',
+        lineEndPlaceholder: 'End line number',
+        showEmail: 'Show email',
+        showLineNumbers: 'Show line numbers'
+      },
+      grep: {
+        pattern: 'Search Pattern',
+        patternPlaceholder: 'Enter search pattern...',
+        file: 'File/Path',
+        filePlaceholder: 'Leave empty to search all files',
+        caseInsensitive: 'Case insensitive',
+        recursive: 'Recursive search',
+        showLineNumbers: 'Show line numbers',
+        extendedRegex: 'Extended regex'
+      },
+      bisect: {
+        operation: 'Operation',
+        start: 'Start',
+        good: 'Mark as good',
+        bad: 'Mark as bad',
+        skip: 'Skip',
+        reset: 'Reset',
+        run: 'Run script',
+        commit: 'Commit',
+        commitPlaceholder: 'Enter commit hash...',
+        script: 'Script',
+        scriptPlaceholder: 'Enter script command...'
+      },
+      reflog: {
+        ref: 'Reference',
+        refPlaceholder: 'Leave empty for HEAD',
+        count: 'Count',
+        showAll: 'Show all refs'
+      },
+      archive: {
+        format: 'Format',
+        output: 'Output File',
+        outputPlaceholder: 'Enter output file path...',
+        tree: 'Tree/Commit',
+        prefix: 'Prefix',
+        prefixPlaceholder: 'Directory prefix in archive'
+      },
+      describe: {
+        commit: 'Commit',
+        tags: 'Use tags only',
+        all: 'Use all refs',
+        long: 'Always use long format'
+      },
+      shortlog: {
+        count: 'Count',
+        email: 'Show email',
+        group: 'Group By',
+        author: 'Author',
+        committer: 'Committer'
+      },
+      switch: {
+        branch: 'Branch',
+        branchPlaceholder: 'Enter branch name...',
+        create: 'Create new branch',
+        track: 'Track remote branch',
+        detach: 'Detach HEAD'
+      },
+      restore: {
+        file: 'File',
+        filePlaceholder: 'Enter file path...',
+        source: 'Source',
+        sourcePlaceholder: 'Commit or branch',
+        staged: 'Restore from index',
+        worktree: 'Restore from working tree'
+      },
+      apply: {
+        patch: 'Patch File',
+        patchPlaceholder: 'Enter patch file path...',
+        check: 'Check if patch applies',
+        reverse: 'Apply patch in reverse',
+        '3way': 'Use 3-way merge'
+      },
+      formatPatch: {
+        range: 'Commit Range',
+        rangePlaceholder: 'e.g., HEAD~3..HEAD',
+        output: 'Output Directory',
+        outputPlaceholder: 'Leave empty for current directory',
+        numbered: 'Numbered patches',
+        coverLetter: 'Generate cover letter'
+      },
+      notes: {
+        operation: 'Operation',
+        add: 'Add',
+        show: 'Show',
+        list: 'List',
+        remove: 'Remove',
+        append: 'Append',
+        commit: 'Commit',
+        message: 'Message',
+        messagePlaceholder: 'Enter note message...',
+        ref: 'Notes Ref'
+      },
+      bundle: {
+        operation: 'Operation',
+        create: 'Create',
+        listHeads: 'List Heads',
+        verify: 'Verify',
+        unbundle: 'Unbundle',
+        file: 'Bundle File',
+        filePlaceholder: 'Enter bundle file path...',
+        branch: 'Branch',
+        branchPlaceholder: 'Enter branch name...',
+        all: 'Bundle all branches'
+      },
+      sparseCheckout: {
+        operation: 'Operation',
+        init: 'Initialize',
+        set: 'Set paths',
+        add: 'Add paths',
+        disable: 'Disable',
+        list: 'List paths',
+        paths: 'Paths',
+        pathsPlaceholder: 'Enter paths (space-separated)...',
+        cone: 'Cone mode'
+      },
+      maintenance: {
+        operation: 'Operation',
+        start: 'Start',
+        stop: 'Stop',
+        run: 'Run',
+        task: 'Task',
+        gc: 'Garbage collection',
+        commitGraph: 'Commit graph',
+        prefetch: 'Prefetch',
+        looseObjects: 'Loose objects',
+        incrementalRepack: 'Incremental repack'
+      }
+    },
     qrCode: {
       title: 'QR Code Generator',
       input: 'Input',
@@ -1478,6 +1938,7 @@ const translations = {
       apiClient: 'REST API 客户端',
       websocket: 'WebSocket 测试器',
       ipLookup: 'IP/域名查询',
+      gitCommands: 'Git 命令生成器',
       imageTools: '图片处理',
       qrCode: '二维码生成器',
       iban: 'IBAN 校验器',
@@ -2305,6 +2766,464 @@ const translations = {
         domainNotFound: '域名未找到',
         domainResolveFailed: '域名解析失败',
         corsError: 'CORS 错误：请使用桌面应用版本进行 IP 查询'
+      }
+    },
+    gitCommands: {
+      title: 'Git 命令生成器',
+      description: '生成可自定义选项的 Git 命令',
+      commandType: '命令类型',
+      generatedCommand: '生成的命令',
+      commandHint: '命令会根据您的选择自动生成。复制并粘贴到终端中使用。',
+      description: '功能说明',
+      clear: '清空',
+      descriptions: {
+        commit: '将更改记录到仓库中。使用暂存区的更改和提交信息创建新提交。',
+        add: '将文件内容添加到暂存区。准备要提交的更改。',
+        push: '将本地分支提交上传到远程仓库。用本地更改更新远程仓库。',
+        pull: '从远程仓库获取并合并更改到当前分支。',
+        fetch: '从远程仓库下载对象和引用，但不合并到本地分支。',
+        branch: '列出、创建或删除分支。分支允许您同时处理不同的功能。',
+        checkout: '切换分支或恢复工作树文件。也可以创建新分支。',
+        merge: '将两个或多个开发历史合并在一起。合并来自不同分支的更改。',
+        rebase: '在另一个基础提示之上重新应用提交。通过移动提交创建线性历史。',
+        tag: '创建、列出或删除标签。标签标记历史中的特定点，通常用于发布。',
+        log: '显示提交日志。以各种格式显示提交历史。',
+        status: '显示工作树状态。显示哪些文件已被修改、暂存或未跟踪。',
+        diff: '显示提交之间、提交和工作树之间的更改等。显示版本之间的差异。',
+        show: '显示各种类型的对象。显示有关提交、标签或树的信息。',
+        revert: '撤销一些现有提交。创建新提交以撤销指定提交的更改。',
+        cherryPick: '应用某些现有提交引入的更改。将特定提交从一个分支选择到另一个分支。',
+        clone: '将仓库克隆到新目录。在本地创建远程仓库的副本。',
+        init: '创建空 Git 仓库或重新初始化现有仓库。初始化新仓库。',
+        remote: '管理跟踪的仓库集合。为本地仓库配置远程仓库。',
+        stash: '将脏工作目录中的更改暂存起来。临时保存未提交的更改。',
+        reset: '将当前 HEAD 重置为指定状态。移动分支指针并可选择更新索引和工作树。',
+        rm: '从工作树和索引中删除文件。从 Git 跟踪中删除文件。',
+        mv: '移动或重命名文件、目录或符号链接。在 Git 中移动或重命名文件。',
+        clean: '从工作树中删除未跟踪的文件。清理 Git 未跟踪的文件。',
+        config: '获取和设置仓库或全局选项。为仓库或全局配置 Git 设置。',
+        submodule: '初始化、更新或检查子模块。管理项目中的嵌套 Git 仓库。',
+        worktree: '管理与同一仓库关联的多个工作树。允许同时处理多个分支。',
+        blame: '显示每行文件的最后修改版本和作者。逐行显示修订信息。',
+        grep: '打印匹配模式的行。在仓库中搜索文本模式。',
+        bisect: '使用二分查找找到引入错误的提交。帮助高效定位有问题的提交。',
+        reflog: '管理引用日志信息。显示 HEAD 和分支引用位置的日志。',
+        archive: '从命名树创建文件归档。将仓库内容导出为 tar 或 zip 文件。',
+        describe: '基于可用引用为对象提供人类可读的名称。从标签创建版本字符串。',
+        shortlog: '汇总 git log 输出。按作者分组提交并显示摘要。',
+        switch: '切换分支。用于切换分支的现代替代方案（Git 2.23+）。',
+        restore: '恢复工作树文件。用于恢复文件的现代替代方案（Git 2.23+）。',
+        apply: '将补丁应用到文件和/或索引。应用由 format-patch 或 diff 创建的补丁。',
+        formatPatch: '准备用于电子邮件提交的补丁。创建适合电子邮件分发的补丁文件。',
+        notes: '添加或检查对象注释。在不修改提交本身的情况下将注释附加到提交。',
+        bundle: '通过归档移动对象和引用。打包仓库以便在没有网络连接的情况下传输。',
+        sparseCheckout: '初始化并修改稀疏检出配置。启用大型仓库的部分检出。',
+        maintenance: '运行任务以优化 Git 仓库数据。自动化仓库维护任务（Git 2.31+）。'
+      },
+      types: {
+        commit: '提交',
+        add: '添加',
+        push: '推送',
+        pull: '拉取',
+        fetch: '获取',
+        branch: '分支',
+        checkout: '切换',
+        merge: '合并',
+        rebase: '变基',
+        tag: '标签',
+        log: '日志',
+        status: '状态',
+        diff: '差异',
+        show: '显示',
+        revert: '撤销',
+        cherryPick: '拣选',
+        clone: '克隆',
+        init: '初始化',
+        remote: '远程',
+        stash: '暂存',
+        reset: '重置',
+        rm: '删除',
+        mv: '移动',
+        clean: '清理',
+        config: '配置',
+        submodule: '子模块',
+        worktree: '工作树',
+        blame: '追溯',
+        grep: '搜索',
+        bisect: '二分查找',
+        reflog: '引用日志',
+        archive: '归档',
+        describe: '描述',
+        shortlog: '短日志',
+        switch: '切换',
+        restore: '恢复',
+        apply: '应用',
+        formatPatch: '格式化补丁',
+        notes: '注释',
+        bundle: '打包',
+        sparseCheckout: '稀疏检出',
+        maintenance: '维护'
+      },
+      commit: {
+        message: '提交信息',
+        messagePlaceholder: '输入提交信息...',
+        addAll: '添加所有文件',
+        amend: '修改上一次提交'
+      },
+      push: {
+        remote: '远程仓库',
+        branch: '分支',
+        branchPlaceholder: '留空使用当前分支',
+        force: '强制推送',
+        tags: '推送标签'
+      },
+      pull: {
+        remote: '远程仓库',
+        branch: '分支',
+        branchPlaceholder: '留空使用当前分支',
+        rebase: '使用 rebase 而非 merge'
+      },
+      branch: {
+        operation: '操作',
+        create: '创建',
+        checkout: '切换',
+        delete: '删除',
+        rename: '重命名',
+        list: '列表',
+        name: '分支名称',
+        namePlaceholder: '输入分支名称...',
+        oldName: '旧名称',
+        oldNamePlaceholder: '输入旧分支名称...',
+        showAll: '显示所有分支'
+      },
+      merge: {
+        branch: '要合并的分支',
+        branchPlaceholder: '输入分支名称...',
+        noFF: '禁用快进合并',
+        squash: '压缩合并'
+      },
+      tag: {
+        operation: '操作',
+        create: '创建',
+        delete: '删除',
+        list: '列表',
+        name: '标签名称',
+        namePlaceholder: '输入标签名称...',
+        message: '标签信息',
+        messagePlaceholder: '输入标签信息...',
+        annotated: '带注释的标签'
+      },
+      log: {
+        count: '提交数量',
+        graph: '显示图形',
+        oneline: '每行一个提交',
+        author: '作者',
+        authorPlaceholder: '按作者筛选...',
+        search: '搜索',
+        searchPlaceholder: '在提交信息中搜索...'
+      },
+      status: {
+        short: '简短格式'
+      },
+      clone: {
+        url: '仓库 URL',
+        urlPlaceholder: 'https://github.com/user/repo.git',
+        directory: '目录',
+        directoryPlaceholder: '留空使用默认',
+        branch: '分支',
+        branchPlaceholder: '留空使用默认分支',
+        depth: '深度',
+        depthPlaceholder: '浅克隆深度'
+      },
+      remote: {
+        operation: '操作',
+        add: '添加',
+        remove: '删除',
+        setUrl: '设置 URL',
+        list: '列表',
+        name: '远程名称',
+        url: '仓库 URL',
+        urlPlaceholder: 'https://github.com/user/repo.git'
+      },
+      stash: {
+        operation: '操作',
+        save: '保存',
+        list: '列表',
+        pop: '弹出',
+        apply: '应用',
+        drop: '删除',
+        message: '暂存信息',
+        messagePlaceholder: '输入暂存信息...'
+      },
+      reset: {
+        mode: '重置模式',
+        soft: '软重置（保留暂存区更改）',
+        mixed: '混合重置（保留工作区更改）',
+        hard: '硬重置（丢弃所有更改）',
+        target: '目标',
+        targetPlaceholder: 'HEAD、提交哈希或分支名称'
+      },
+      fetch: {
+        remote: '远程仓库',
+        branch: '分支',
+        branchPlaceholder: '留空获取所有分支',
+        all: '获取所有远程',
+        prune: '清理已删除的分支',
+        tags: '获取标签'
+      },
+      checkout: {
+        target: '目标（分支/提交）',
+        targetPlaceholder: '分支名称或提交哈希',
+        branch: '分支名称',
+        branchPlaceholder: '输入分支名称...',
+        file: '文件路径',
+        filePlaceholder: '输入要检出的文件路径...',
+        create: '创建新分支'
+      },
+      add: {
+        files: '文件',
+        filesPlaceholder: '输入文件路径（空格分隔）...',
+        all: '添加所有文件',
+        patch: '交互式补丁模式',
+        update: '仅更新已跟踪的文件'
+      },
+      diff: {
+        file: '文件',
+        filePlaceholder: '输入文件路径...',
+        commit1: '提交 1',
+        commit1Placeholder: '留空表示工作目录',
+        commit2: '提交 2',
+        commit2Placeholder: '留空表示 HEAD',
+        staged: '显示暂存区更改',
+        stat: '显示统计信息'
+      },
+      show: {
+        commit: '提交',
+        file: '文件',
+        filePlaceholder: '输入文件路径...',
+        stat: '显示统计信息',
+        nameOnly: '仅显示文件名'
+      },
+      revert: {
+        commit: '提交',
+        commitPlaceholder: '输入提交哈希...',
+        noCommit: '不提交（仅暂存更改）',
+        noEdit: '不编辑（使用默认消息）'
+      },
+      cherryPick: {
+        commit: '提交',
+        commitPlaceholder: '输入提交哈希...',
+        noCommit: '不提交（仅暂存更改）',
+        edit: '编辑提交信息'
+      },
+      rebase: {
+        branch: '分支',
+        branchPlaceholder: '输入分支名称...',
+        onto: '基于',
+        ontoPlaceholder: '基础提交或分支',
+        interactive: '交互式变基',
+        continue: '继续变基',
+        abort: '中止变基'
+      },
+      config: {
+        operation: '操作',
+        get: '获取',
+        set: '设置',
+        unset: '取消设置',
+        list: '列表',
+        key: '配置键',
+        keyPlaceholder: '例如：user.name',
+        value: '配置值',
+        valuePlaceholder: '输入值...',
+        global: '全局配置',
+        local: '本地配置'
+      },
+      init: {
+        directory: '目录',
+        directoryPlaceholder: '留空使用当前目录',
+        template: '模板',
+        templatePlaceholder: '模板目录路径',
+        bare: '裸仓库'
+      },
+      rm: {
+        files: '文件',
+        filesPlaceholder: '输入文件路径（空格分隔）...',
+        cached: '仅从索引中删除',
+        recursive: '递归',
+        force: '强制删除'
+      },
+      mv: {
+        source: '源',
+        sourcePlaceholder: '输入源路径...',
+        destination: '目标',
+        destinationPlaceholder: '输入目标路径...'
+      },
+      clean: {
+        dryRun: '试运行（显示将被删除的内容）',
+        force: '强制删除',
+        interactive: '交互模式',
+        directory: '删除目录'
+      },
+      submodule: {
+        operation: '操作',
+        add: '添加',
+        update: '更新',
+        init: '初始化',
+        deinit: '取消初始化',
+        status: '状态',
+        url: '子模块 URL',
+        urlPlaceholder: '输入子模块仓库 URL...',
+        path: '路径',
+        pathPlaceholder: '输入子模块路径...',
+        recursive: '递归更新'
+      },
+      worktree: {
+        operation: '操作',
+        add: '添加',
+        list: '列表',
+        remove: '删除',
+        prune: '清理',
+        path: '路径',
+        pathPlaceholder: '输入工作树路径...',
+        branch: '分支',
+        branchPlaceholder: '输入分支名称（使用 -b 创建新分支）'
+      },
+      blame: {
+        file: '文件',
+        filePlaceholder: '输入文件路径...',
+        lineStart: '起始行',
+        lineStartPlaceholder: '起始行号',
+        lineEnd: '结束行',
+        lineEndPlaceholder: '结束行号',
+        showEmail: '显示邮箱',
+        showLineNumbers: '显示行号'
+      },
+      grep: {
+        pattern: '搜索模式',
+        patternPlaceholder: '输入搜索模式...',
+        file: '文件/路径',
+        filePlaceholder: '留空搜索所有文件',
+        caseInsensitive: '忽略大小写',
+        recursive: '递归搜索',
+        showLineNumbers: '显示行号',
+        extendedRegex: '扩展正则表达式'
+      },
+      bisect: {
+        operation: '操作',
+        start: '开始',
+        good: '标记为正常',
+        bad: '标记为错误',
+        skip: '跳过',
+        reset: '重置',
+        run: '运行脚本',
+        commit: '提交',
+        commitPlaceholder: '输入提交哈希...',
+        script: '脚本',
+        scriptPlaceholder: '输入脚本命令...'
+      },
+      reflog: {
+        ref: '引用',
+        refPlaceholder: '留空使用 HEAD',
+        count: '数量',
+        showAll: '显示所有引用'
+      },
+      archive: {
+        format: '格式',
+        output: '输出文件',
+        outputPlaceholder: '输入输出文件路径...',
+        tree: '树/提交',
+        prefix: '前缀',
+        prefixPlaceholder: '归档中的目录前缀'
+      },
+      describe: {
+        commit: '提交',
+        tags: '仅使用标签',
+        all: '使用所有引用',
+        long: '始终使用长格式'
+      },
+      shortlog: {
+        count: '数量',
+        email: '显示邮箱',
+        group: '分组方式',
+        author: '作者',
+        committer: '提交者'
+      },
+      switch: {
+        branch: '分支',
+        branchPlaceholder: '输入分支名称...',
+        create: '创建新分支',
+        track: '跟踪远程分支',
+        detach: '分离 HEAD'
+      },
+      restore: {
+        file: '文件',
+        filePlaceholder: '输入文件路径...',
+        source: '源',
+        sourcePlaceholder: '提交或分支',
+        staged: '从索引恢复',
+        worktree: '从工作树恢复'
+      },
+      apply: {
+        patch: '补丁文件',
+        patchPlaceholder: '输入补丁文件路径...',
+        check: '检查补丁是否可应用',
+        reverse: '反向应用补丁',
+        '3way': '使用三方合并'
+      },
+      formatPatch: {
+        range: '提交范围',
+        rangePlaceholder: '例如：HEAD~3..HEAD',
+        output: '输出目录',
+        outputPlaceholder: '留空使用当前目录',
+        numbered: '编号补丁',
+        coverLetter: '生成封面信'
+      },
+      notes: {
+        operation: '操作',
+        add: '添加',
+        show: '显示',
+        list: '列表',
+        remove: '删除',
+        append: '追加',
+        commit: '提交',
+        message: '消息',
+        messagePlaceholder: '输入注释消息...',
+        ref: '注释引用'
+      },
+      bundle: {
+        operation: '操作',
+        create: '创建',
+        listHeads: '列出头',
+        verify: '验证',
+        unbundle: '解包',
+        file: '打包文件',
+        filePlaceholder: '输入打包文件路径...',
+        branch: '分支',
+        branchPlaceholder: '输入分支名称...',
+        all: '打包所有分支'
+      },
+      sparseCheckout: {
+        operation: '操作',
+        init: '初始化',
+        set: '设置路径',
+        add: '添加路径',
+        disable: '禁用',
+        list: '列出路径',
+        paths: '路径',
+        pathsPlaceholder: '输入路径（空格分隔）...',
+        cone: '锥形模式'
+      },
+      maintenance: {
+        operation: '操作',
+        start: '启动',
+        stop: '停止',
+        run: '运行',
+        task: '任务',
+        gc: '垃圾回收',
+        commitGraph: '提交图',
+        prefetch: '预取',
+        looseObjects: '松散对象',
+        incrementalRepack: '增量重新打包'
       }
     },
     qrCode: {
