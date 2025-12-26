@@ -1230,12 +1230,8 @@
 
 <div class="flex flex-col h-full w-full p-2">
   <div class="card flex-1 flex flex-col space-y-6">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-semibold text-gray-800 dark:text-gray-100">{t('gitCommands.title')}</h1>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('gitCommands.description')}</p>
-      </div>
-      {#if generatedCommand}
+    {#if generatedCommand}
+      <div class="flex items-center justify-end">
         <div class="flex items-center gap-2">
           <button
             onclick={copyCommand}
@@ -1254,8 +1250,8 @@
             {t('gitCommands.clear')}
           </button>
         </div>
-      {/if}
-    </div>
+      </div>
+    {/if}
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- 左侧：命令类型和参数 -->
