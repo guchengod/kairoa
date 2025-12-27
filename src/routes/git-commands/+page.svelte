@@ -3189,7 +3189,7 @@
               </div>
               <div class="flex-1">
                 <p class="text-sm font-medium text-blue-900 dark:text-blue-200 mb-1">
-                  {t('gitCommands.description')}
+                  {t('gitCommands.descriptionLabel')}
                 </p>
                 <p class="text-sm text-blue-800 dark:text-blue-300 mb-2">
                   {commandDescription}

@@ -47,7 +47,9 @@ const translations = {
       websocketDesc: 'Test WebSocket connections, send and receive messages in real-time',
       ipLookupDesc: 'Query IP address and domain information, including location, ISP, and network details',
       gitCommandsDesc: 'Generate Git commands with customizable options for common operations',
-      dockerCommandsDesc: 'Generate Docker commands with customizable options for container and image management'
+      dockerCommandsDesc: 'Generate Docker commands with customizable options for container and image management',
+      configConverterDesc: 'Convert between configuration file formats (JSON, YAML, TOML, INI, XML, Properties, ENV, TOON)',
+      hmacDesc: 'Generate HMAC (Hash-based Message Authentication Code) signatures'
     },
     nav: {
       hash: 'Hash Calculator',
@@ -89,6 +91,7 @@ const translations = {
       sqlFormatter: 'SQL Formatter',
       mockGenerator: 'Mock Data Generator',
       dataConverter: 'CSV / JSON Converter',
+      configConverter: 'Config Converter',
       settings: 'Settings'
     },
     dataConverter: {
@@ -906,7 +909,7 @@ const translations = {
       commandType: 'Command Type',
       generatedCommand: 'Generated Command',
       commandHint: 'The command is generated automatically based on your selections. Copy and paste it into your terminal.',
-      description: 'Description',
+      descriptionLabel: 'Description',
       clear: 'Clear',
       descriptions: {
         commit: 'Record changes to the repository. Creates a new commit with staged changes and a commit message.',
@@ -1547,7 +1550,7 @@ const translations = {
       commandType: 'Command Type',
       generatedCommand: 'Generated Command',
       commandHint: 'The command is generated automatically based on your selections. Copy and paste it into your terminal.',
-      description: 'Description',
+      descriptionLabel: 'Description',
       copy: 'Copy',
       copied: 'Copied',
       clear: 'Clear',
@@ -1758,6 +1761,26 @@ const translations = {
       saveFailed: 'Failed to save QR code',
       downloadStarted: '✓ Download started'
     },
+    configConverter: {
+      title: 'Config Converter',
+      description: 'Convert between configuration file formats',
+      inputFormat: 'Input Format',
+      outputFormat: 'Output Format',
+      input: 'Input',
+      output: 'Output',
+      inputPlaceholder: 'Paste your configuration here...',
+      outputPlaceholder: 'Converted configuration will appear here...',
+      swapFormats: 'Swap Formats',
+      clear: 'Clear',
+      errors: {
+        emptyInput: 'Input cannot be empty',
+        sameFormat: 'Input and output formats cannot be the same',
+        invalidJson: 'Invalid JSON format',
+        invalidXml: 'Invalid XML format',
+        unsupportedFormat: 'Unsupported format',
+        conversionFailed: 'Conversion failed'
+      }
+    },
     pdfSignature: {
       title: 'PDF Signature Checker',
       description: 'Inspect PDF digital signatures and validate them locally.',
@@ -1865,13 +1888,6 @@ const translations = {
         fileTooLarge: 'Certificate file exceeds the 5 MB limit',
         readFailed: 'Failed to read file'
       }
-    },
-    chmod: {
-      tips: [
-        'Each signature is verified against the byte ranges embedded inside the PDF.',
-        'Certificate trust chains are not evaluated. Use a trusted PDF reader for compliance workflows.',
-        'Multiple signatures are displayed in the order they appear in the document.'
-      ]
     },
     chmod: {
       title: 'Chmod Calculator',
@@ -2288,8 +2304,14 @@ const translations = {
       romanNumeralDesc: '罗马数字和阿拉伯数字之间的转换',
       regexTesterDesc: '实时测试和调试正则表达式，支持匹配高亮',
       sqlFormatterDesc: '格式化和美化 SQL 查询，支持自定义选项',
+      mockGeneratorDesc: '使用可自定义模板和批量生成功能生成模拟测试数据',
       dataConverterDesc: 'CSV 与 JSON 互转，支持分隔符选项',
-      websocketDesc: '测试 WebSocket 连接，实时发送和接收消息'
+      websocketDesc: '测试 WebSocket 连接，实时发送和接收消息',
+      ipLookupDesc: '查询 IP 地址和域名信息，包括位置、ISP 和网络详情',
+      gitCommandsDesc: '生成可自定义选项的 Git 命令，用于常见操作',
+      dockerCommandsDesc: '生成可自定义选项的 Docker 命令，用于容器和镜像管理',
+      configConverterDesc: '在配置文件格式之间转换（JSON、YAML、TOML、INI、XML、Properties、ENV、TOON）',
+      hmacDesc: '生成 HMAC（基于哈希的消息认证码）签名'
     },
     nav: {
       hash: 'Hash 计算器',
@@ -2331,6 +2353,7 @@ const translations = {
       sqlFormatter: 'SQL 格式化',
       mockGenerator: 'Mock 数据生成器',
       dataConverter: 'CSV / JSON 转换',
+      configConverter: '配置转换器',
       settings: '设置'
     },
     dataConverter: {
@@ -3148,7 +3171,7 @@ const translations = {
       commandType: '命令类型',
       generatedCommand: '生成的命令',
       commandHint: '命令会根据您的选择自动生成。复制并粘贴到终端中使用。',
-      description: '功能说明',
+      descriptionLabel: '功能说明',
       clear: '清空',
       descriptions: {
         commit: '将更改记录到仓库中。使用暂存区的更改和提交信息创建新提交。',
@@ -3789,7 +3812,7 @@ const translations = {
       commandType: '命令类型',
       generatedCommand: '生成的命令',
       commandHint: '命令会根据您的选择自动生成。复制并粘贴到终端中使用。',
-      description: '功能说明',
+      descriptionLabel: '功能说明',
       copy: '复制',
       copied: '已复制',
       clear: '清空',
@@ -4000,6 +4023,26 @@ const translations = {
       saveFailed: '保存二维码失败',
       downloadStarted: '✓ 下载已开始'
     },
+    configConverter: {
+      title: '配置转换器',
+      description: '在配置文件格式之间转换',
+      inputFormat: '输入格式',
+      outputFormat: '输出格式',
+      input: '输入',
+      output: '输出',
+      inputPlaceholder: '在此粘贴您的配置...',
+      outputPlaceholder: '转换后的配置将显示在这里...',
+      swapFormats: '交换格式',
+      clear: '清空',
+      errors: {
+        emptyInput: '输入不能为空',
+        sameFormat: '输入和输出格式不能相同',
+        invalidJson: '无效的 JSON 格式',
+        invalidXml: '无效的 XML 格式',
+        unsupportedFormat: '不支持的格式',
+        conversionFailed: '转换失败'
+      }
+    },
     pdfSignature: {
       title: 'PDF 签名校验',
       description: '本地检查 PDF 数字签名并验证完整性。',
@@ -4107,13 +4150,6 @@ const translations = {
         fileTooLarge: '证书文件大小超过 5 MB 限制',
         readFailed: '读取文件失败'
       }
-    },
-    chmod: {
-      tips: [
-        '每个签名都会按照 PDF 中记录的 ByteRange 重新验证。',
-        '不会检查证书信任链，如需合规用途请使用权威 PDF 阅读器。',
-        '当文档包含多个签名时，会按出现顺序依次列出。'
-      ]
     },
     chmod: {
       title: 'Chmod 权限计算器',
