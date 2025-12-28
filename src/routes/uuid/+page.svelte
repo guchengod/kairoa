@@ -4,7 +4,7 @@
   import CryptoJS from 'crypto-js';
   
   type GeneratorType = 'uuid' | 'ulid';
-  type UUIDVersion = 'v1' | 'v3' | 'v4' | 'v5';
+  type UUIDVersion = 'v1' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7' | 'v8';
   
   let generatorType = $state<GeneratorType>('uuid');
   let uuidVersion = $state<UUIDVersion>('v4');
@@ -154,6 +154,96 @@
     return includeHyphens ? uuid : uuid.replace(/-/g, '');
   }
 
+  function generateUUIDv6() {
+    // UUID v6: v1 的重新排序版本，提高排序性能
+    // 格式：time_high (12 bits) + version (4 bits) | time_mid (16 bits) | time_low (32 bits) | variant + clock_seq (14 bits) | node (48 bits)
+    const now = Date.now();
+    const timestamp = now * 10000 + 122192928000000000; // Convert to 100-nanosecond intervals since 1582-10-15
+    
+    // 重新排列时间戳部分
+    const timeLow = (timestamp & 0xffffffff).toString(16).padStart(8, '0');
+    const timeMid = ((timestamp / 0x100000000) & 0xffff).toString(16).padStart(4, '0');
+    const timeHigh = ((timestamp / 0x1000000000000) & 0x0fff).toString(16).padStart(3, '0');
+    
+    // 版本号 6
+    const version = '6';
+    const timeHighAndVersion = (version + timeHigh).padStart(4, '0');
+    
+    const clockSeq = ((Math.random() * 0x3fff) | 0x8000).toString(16).padStart(4, '0');
+    
+    // 生成随机节点 ID（6 字节）
+    const node = Array.from({ length: 6 }, () => 
+      Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
+    ).join('');
+    
+    const uuid = `${timeLow}-${timeMid}-${timeHighAndVersion}-${clockSeq}-${node}`;
+    return includeHyphens ? uuid : uuid.replace(/-/g, '');
+  }
+
+  function generateUUIDv7() {
+    // UUID v7: 基于 Unix 时间戳（毫秒）和随机数据
+    // 格式：unix_ts_ms (48 bits) | ver (4 bits) | rand_a (12 bits) | var (2 bits) | rand_b (62 bits)
+    const unixTsMs = Date.now();
+    
+    // 时间戳部分（48 位 = 12 个十六进制字符）
+    const tsHex = unixTsMs.toString(16).padStart(12, '0');
+    const timeLow = tsHex.substring(0, 8);  // 32 bits
+    const timeMid = tsHex.substring(8, 12); // 16 bits
+    
+    // 生成随机数据（74 位随机数据）
+    const randomBytes = new Uint8Array(10); // 80 bits，足够 74 bits 使用
+    crypto.getRandomValues(randomBytes);
+    
+    // rand_a: 12 bits (3 hex chars) - 从 randomBytes[0] 的 8 bits + randomBytes[1] 的高 4 bits
+    const randA = ((randomBytes[0] << 4) | (randomBytes[1] >> 4)).toString(16).padStart(3, '0');
+    // 版本号 7 (4 bits) + rand_a (12 bits) = 16 bits = 4 hex chars
+    const timeHighAndVersion = '7' + randA;
+    
+    // variant (2 bits) + rand_b (62 bits)
+    // variant 必须是 10 (二进制)，即十六进制的最高位为 1
+    // 从 randomBytes[1] 的低 4 位中取低 2 位，并确保 variant 为 10
+    const variantBits = (randomBytes[1] & 0x3) | 0x8; // 确保 variant 为 10xx (0x8-0xB)
+    // rand_b: 62 bits = 15.5 hex chars，需要 16 hex chars
+    // 第一个字节：variant (2 bits) + randomBytes[1] 的高 6 位 (6 bits) = 8 bits
+    const randBFirstByte = ((randomBytes[1] & 0xfc) >> 2) | (variantBits << 6);
+    const randB = randBFirstByte.toString(16).padStart(2, '0') + 
+      Array.from(randomBytes.slice(2, 10))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    
+    const uuid = `${timeLow}-${timeMid}-${timeHighAndVersion}-${randB.substring(0, 4)}-${randB.substring(4)}`;
+    return includeHyphens ? uuid : uuid.replace(/-/g, '');
+  }
+
+  function generateUUIDv8() {
+    // UUID v8: 自定义格式，用于实验和特定用途
+    // 格式：custom_a (48 bits) | ver (4 bits) | custom_b (12 bits) | var (2 bits) | custom_c (62 bits)
+    // 这里我们使用随机值，但保留版本号和变体位
+    const randomBytes = new Uint8Array(16);
+    crypto.getRandomValues(randomBytes);
+    
+    // custom_a (48 bits = 6 bytes)
+    const customA = Array.from(randomBytes.slice(0, 6))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    const customALow = customA.substring(0, 8);
+    const customAMid = customA.substring(8, 12);
+    
+    // 版本号 8 和 custom_b (12 bits)
+    const customB = ((randomBytes[6] << 4) | (randomBytes[7] >> 4)).toString(16).padStart(3, '0');
+    const customBAndVersion = '8' + customB;
+    
+    // variant (2 bits) + custom_c (62 bits)
+    const variant = (randomBytes[7] & 0x3f | 0x80).toString(16).padStart(2, '0');
+    const customC = Array.from(randomBytes.slice(8, 16))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    const variantAndCustomC = variant + customC;
+    
+    const uuid = `${customALow}-${customAMid}-${customBAndVersion}-${variantAndCustomC.substring(0, 4)}-${variantAndCustomC.substring(4)}`;
+    return includeHyphens ? uuid : uuid.replace(/-/g, '');
+  }
+
   function generateUUID() {
     if (uuidVersion === 'v1') {
       return generateUUIDv1();
@@ -161,10 +251,18 @@
       const namespace = namespaceName || NAMESPACES.DNS;
       const name = customName || 'example.com';
       return generateUUIDv3(namespace, name);
+    } else if (uuidVersion === 'v4') {
+      return generateUUIDv4();
     } else if (uuidVersion === 'v5') {
       const namespace = namespaceName || NAMESPACES.DNS;
       const name = customName || 'example.com';
       return generateUUIDv5(namespace, name);
+    } else if (uuidVersion === 'v6') {
+      return generateUUIDv6();
+    } else if (uuidVersion === 'v7') {
+      return generateUUIDv7();
+    } else if (uuidVersion === 'v8') {
+      return generateUUIDv8();
     } else {
       return generateUUIDv4();
     }
@@ -278,6 +376,9 @@
             <option value="v3">{t('uuid.v3')}</option>
             <option value="v4">{t('uuid.v4')}</option>
             <option value="v5">{t('uuid.v5')}</option>
+            <option value="v6">{t('uuid.v6')}</option>
+            <option value="v7">{t('uuid.v7')}</option>
+            <option value="v8">{t('uuid.v8')}</option>
           </select>
         </div>
         
