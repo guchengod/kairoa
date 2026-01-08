@@ -1501,7 +1501,12 @@
                         placeholder={t('apiClient.headerKey')}
                         class="w-full px-0 py-0 text-sm bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled={!header.enabled}
-                        style="text-transform: lowercase;"
+                        style="ime-mode: disabled; text-transform: lowercase;"
+                        inputmode="text"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
                         oninput={(e) => header.key = (e.target as HTMLInputElement).value.toLowerCase()}
                       />
                     </div>
@@ -1513,6 +1518,12 @@
                         placeholder={t('apiClient.headerValue')}
                         class="flex-1 px-0 py-0 text-sm bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled={!header.enabled}
+                        style="ime-mode: disabled;"
+                        inputmode="text"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
                       />
                       <!-- Delete button (show on hover) -->
                       <button
@@ -1577,6 +1588,11 @@
                 bind:value={activeTab.bodyJson}
                 placeholder={t('apiClient.jsonPlaceholder')}
                 class="textarea font-mono text-sm min-h-[150px]"
+                style="ime-mode: disabled;"
+                inputmode="text"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
                 oninput={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
                 onfocus={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
               ></textarea>
@@ -1586,6 +1602,11 @@
                 bind:value={activeTab.bodyText}
                 placeholder={t('apiClient.textPlaceholder')}
                 class="textarea font-mono text-sm min-h-[150px]"
+                style="ime-mode: disabled;"
+                inputmode="text"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
                 oninput={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
                 onfocus={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
               ></textarea>
@@ -1595,6 +1616,11 @@
                 bind:value={activeTab.bodyXml}
                 placeholder={t('apiClient.xmlPlaceholder')}
                 class="textarea font-mono text-sm min-h-[150px]"
+                style="ime-mode: disabled;"
+                inputmode="text"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
                 oninput={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
                 onfocus={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
               ></textarea>
@@ -1629,6 +1655,12 @@
                             placeholder={t('apiClient.formKey')}
                             class="w-full px-0 py-0 text-sm bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={!item.enabled}
+                            style="ime-mode: disabled;"
+                            inputmode="text"
+                            autocomplete="off"
+                            autocorrect="off"
+                            autocapitalize="off"
+                            spellcheck="false"
                           />
                         </div>
                         <!-- Type Column (only for form-data) -->
@@ -1669,6 +1701,12 @@
                               placeholder={t('apiClient.formValue')}
                               class="flex-1 px-0 py-0 text-sm bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed"
                               disabled={!item.enabled}
+                              style="ime-mode: disabled;"
+                              inputmode="text"
+                              autocomplete="off"
+                              autocorrect="off"
+                              autocapitalize="off"
+                              spellcheck="false"
                             />
                           {:else if item.type === 'file'}
                             <label class="flex-1 cursor-pointer flex items-center gap-2 {!item.enabled ? 'opacity-50 cursor-not-allowed' : ''}">
