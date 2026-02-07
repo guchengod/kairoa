@@ -46,10 +46,12 @@ const translations = {
       dataConverterDesc: 'Convert between CSV and JSON with delimiter options',
       websocketDesc: 'Test WebSocket connections, send and receive messages in real-time',
       ipLookupDesc: 'Query IP address and domain information, including location, ISP, and network details',
+      dnsLookupDesc: 'Query DNS records (A, AAAA, CNAME, MX, TXT, NS, etc.) for domains using DNS over HTTPS',
       gitCommandsDesc: 'Generate Git commands with customizable options for common operations',
       dockerCommandsDesc: 'Generate Docker commands with customizable options for container and image management',
       configConverterDesc: 'Convert between configuration file formats (JSON, YAML, TOML, INI, XML, Properties, ENV, TOON)',
-      hmacDesc: 'Generate HMAC (Hash-based Message Authentication Code) signatures'
+      hmacDesc: 'Generate HMAC (Hash-based Message Authentication Code) signatures',
+      envManagerDesc: 'Manage environment variables with import/export support'
     },
     nav: {
       hash: 'Hash Calculator',
@@ -71,6 +73,7 @@ const translations = {
       apiClient: 'REST API Client',
       websocket: 'WebSocket Tester',
       ipLookup: 'IP/Domain Lookup',
+      dnsLookup: 'DNS Lookup',
       gitCommands: 'Git Commands',
       dockerCommands: 'Docker Commands',
       imageTools: 'Image Tools',
@@ -92,6 +95,7 @@ const translations = {
       mockGenerator: 'Mock Data Generator',
       dataConverter: 'CSV / JSON Converter',
       configConverter: 'Config Converter',
+      envManager: 'Environment Variables Manager',
       settings: 'Settings'
     },
     dataConverter: {
@@ -307,7 +311,11 @@ const translations = {
       copy: 'Copy',
       copied: 'Copied!',
       clear: 'Clear',
-      close: 'Close'
+      close: 'Close',
+      save: 'Save',
+      cancel: 'Cancel',
+      edit: 'Edit',
+      delete: 'Delete'
     },
     sidebar: {
       expand: 'Expand sidebar',
@@ -923,6 +931,28 @@ const translations = {
         domainNotFound: 'Domain name not found',
         domainResolveFailed: 'Failed to resolve domain name',
         corsError: 'CORS error: Please use the desktop app version for IP lookup'
+      }
+    },
+    dnsLookup: {
+      title: 'DNS Lookup',
+      description: 'Query DNS records for domains using DNS over HTTPS',
+      query: 'Domain Name',
+      queryPlaceholder: 'e.g., example.com',
+      queryHint: 'Enter a domain name without protocol (e.g., example.com)',
+      recordTypes: 'Record Types',
+      selectAll: 'Select All',
+      clearSelection: 'Clear selection',
+      lookup: 'Lookup',
+      querying: 'Querying...',
+      results: 'Results',
+      ttl: 'TTL',
+      type: 'Type',
+      data: 'Data',
+      noResults: 'No DNS records found for the given query and record types.',
+      errors: {
+        queryRequired: 'Domain name is required',
+        invalidDomain: 'Invalid domain name',
+        queryFailed: 'DNS query failed'
       }
     },
     gitCommands: {
@@ -1803,6 +1833,30 @@ const translations = {
         conversionFailed: 'Conversion failed'
       }
     },
+    envManager: {
+      title: 'Environment Variables Manager',
+      description: 'Manage environment variables with import/export support',
+      keyPlaceholder: 'Key',
+      valuePlaceholder: 'Value',
+      searchPlaceholder: 'Search by key or value...',
+      add: 'Add',
+      addHint: 'Enter key and value, then press Enter or click Add button',
+      edit: 'Edit',
+      delete: 'Delete',
+      import: 'Import',
+      export: 'Export',
+      copyAll: 'Copy All',
+      clearAll: 'Clear All',
+      noVars: 'No environment variables',
+      noVarsDesc: 'Add your first environment variable above',
+      noSearchResults: 'No matching environment variables',
+      noSearchResultsDesc: 'Try adjusting your search keywords or clear the search box',
+      emptyValue: '(empty)',
+      duplicateKey: 'Duplicate key',
+      importDesc: 'Paste .env format content (KEY=VALUE, one per line)',
+      importPlaceholder: 'DATABASE_URL=postgres://localhost:5432/mydb\nAPI_KEY=your-api-key\nDEBUG=true',
+      confirmClear: 'Are you sure you want to clear all environment variables?'
+    },
     pdfSignature: {
       title: 'PDF Signature Checker',
       description: 'Inspect PDF digital signatures and validate them locally.',
@@ -2330,10 +2384,12 @@ const translations = {
       dataConverterDesc: 'CSV 与 JSON 互转，支持分隔符选项',
       websocketDesc: '测试 WebSocket 连接，实时发送和接收消息',
       ipLookupDesc: '查询 IP 地址和域名信息，包括位置、ISP 和网络详情',
+      dnsLookupDesc: '查询域名的 DNS 记录（A、AAAA、CNAME、MX、TXT、NS 等），支持 DNS over HTTPS',
       gitCommandsDesc: '生成可自定义选项的 Git 命令，用于常见操作',
       dockerCommandsDesc: '生成可自定义选项的 Docker 命令，用于容器和镜像管理',
       configConverterDesc: '在配置文件格式之间转换（JSON、YAML、TOML、INI、XML、Properties、ENV、TOON）',
-      hmacDesc: '生成 HMAC（基于哈希的消息认证码）签名'
+      hmacDesc: '生成 HMAC（基于哈希的消息认证码）签名',
+      envManagerDesc: '管理环境变量，支持导入导出'
     },
     nav: {
       hash: 'Hash 计算器',
@@ -2355,6 +2411,7 @@ const translations = {
       apiClient: 'REST API 客户端',
       websocket: 'WebSocket 测试器',
       ipLookup: 'IP/域名查询',
+      dnsLookup: 'DNS 查询',
       gitCommands: 'Git 命令生成器',
       dockerCommands: 'Docker 命令生成器',
       imageTools: '图片处理',
@@ -2376,6 +2433,7 @@ const translations = {
       mockGenerator: 'Mock 数据生成器',
       dataConverter: 'CSV / JSON 转换',
       configConverter: '配置转换器',
+      envManager: '环境变量管理器',
       settings: '设置'
     },
     dataConverter: {
@@ -2591,7 +2649,11 @@ const translations = {
       copy: '复制',
       copied: '已复制!',
       clear: '清除',
-      close: '关闭'
+      close: '关闭',
+      save: '保存',
+      cancel: '取消',
+      edit: '编辑',
+      delete: '删除'
     },
     sidebar: {
       expand: '展开侧边栏',
@@ -3207,6 +3269,28 @@ const translations = {
         domainNotFound: '域名未找到',
         domainResolveFailed: '域名解析失败',
         corsError: 'CORS 错误：请使用桌面应用版本进行 IP 查询'
+      }
+    },
+    dnsLookup: {
+      title: 'DNS 查询',
+      description: '使用 DNS over HTTPS 查询域名的 DNS 记录',
+      query: '域名',
+      queryPlaceholder: '例如：example.com',
+      queryHint: '输入不带协议的域名（例如：example.com）',
+      recordTypes: '记录类型',
+      selectAll: '全选',
+      clearSelection: '清空选择',
+      lookup: '查询',
+      querying: '查询中...',
+      results: '查询结果',
+      ttl: 'TTL',
+      type: '类型',
+      data: '数据',
+      noResults: '没有查询到匹配的 DNS 记录。',
+      errors: {
+        queryRequired: '域名不能为空',
+        invalidDomain: '无效的域名',
+        queryFailed: 'DNS 查询失败'
       }
     },
     gitCommands: {
@@ -4086,6 +4170,30 @@ const translations = {
         unsupportedFormat: '不支持的格式',
         conversionFailed: '转换失败'
       }
+    },
+    envManager: {
+      title: '环境变量管理器',
+      description: '管理环境变量，支持导入导出',
+      keyPlaceholder: '键',
+      valuePlaceholder: '值',
+      searchPlaceholder: '按键或值搜索...',
+      add: '添加',
+      addHint: '输入键和值后，按 Enter 键或点击添加按钮',
+      edit: '编辑',
+      delete: '删除',
+      import: '导入',
+      export: '导出',
+      copyAll: '复制全部',
+      clearAll: '清空全部',
+      noVars: '暂无环境变量',
+      noVarsDesc: '在上方添加您的第一个环境变量',
+      noSearchResults: '没有匹配的环境变量',
+      noSearchResultsDesc: '尝试调整搜索关键词，或清空搜索框',
+      emptyValue: '(空)',
+      duplicateKey: '重复键',
+      importDesc: '粘贴 .env 格式内容（KEY=VALUE，每行一个）',
+      importPlaceholder: 'DATABASE_URL=postgres://localhost:5432/mydb\nAPI_KEY=your-api-key\nDEBUG=true',
+      confirmClear: '确定要清空所有环境变量吗？'
     },
     pdfSignature: {
       title: 'PDF 签名校验',

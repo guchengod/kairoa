@@ -1,7 +1,7 @@
 <script lang="ts">
 import { translationsStore } from '$lib/stores/i18n';
 import { goto } from '$app/navigation';
-import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, Shield, MapPin, Radio, Network, GitBranch, Container, FileCode } from 'lucide-svelte';
+ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, Shield, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server } from 'lucide-svelte';
 
   let translations = $derived($translationsStore);
   let searchQuery = $state('');
@@ -29,6 +29,7 @@ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, 
     { path: '/api-client', icon: Globe, key: 'nav.apiClient', subItems: [] },
     { path: '/websocket', icon: Radio, key: 'nav.websocket', subItems: [] },
     { path: '/ip-lookup', icon: Network, key: 'nav.ipLookup', subItems: [] },
+    { path: '/dns-lookup', icon: Server, key: 'nav.dnsLookup', subItems: [] },
     { path: '/git-commands', icon: GitBranch, key: 'nav.gitCommands', subItems: [] },
     { path: '/docker-commands', icon: Container, key: 'nav.dockerCommands', subItems: [] },
     { path: '/hash', icon: Hash, key: 'nav.hash', subItems: [] },
@@ -72,6 +73,7 @@ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, 
     { path: '/sql-formatter', icon: Database, key: 'nav.sqlFormatter', subItems: [] },
     { path: '/data-converter', icon: FileSpreadsheet, key: 'nav.dataConverter', subItems: [] },
     { path: '/config-converter', icon: FileCode, key: 'nav.configConverter', subItems: [] },
+    { path: '/env-manager', icon: KeyRound, key: 'nav.envManager', subItems: [] },
     { 
       path: '/text-processing', 
       icon: FileText, 

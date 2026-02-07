@@ -3,12 +3,13 @@
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
- import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, MapPin, Radio, Network, GitBranch, Container, FileCode } from 'lucide-svelte';
+ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server } from 'lucide-svelte';
 
   const navItems = [
     { path: '/api-client', icon: Globe, key: 'nav.apiClient' },
     { path: '/websocket', icon: Radio, key: 'nav.websocket' },
     { path: '/ip-lookup', icon: Network, key: 'nav.ipLookup' },
+    { path: '/dns-lookup', icon: Server, key: 'nav.dnsLookup' },
     { path: '/git-commands', icon: GitBranch, key: 'nav.gitCommands' },
     { path: '/docker-commands', icon: Container, key: 'nav.dockerCommands' },
     { path: '/hash', icon: Hash, key: 'nav.hash' },
@@ -99,6 +100,7 @@
     { path: '/regex-tester', icon: Regex, key: 'nav.regexTester' },
     { path: '/mock-generator', icon: DatabaseZap, key: 'nav.mockGenerator' },
     { path: '/config-converter', icon: FileCode, key: 'nav.configConverter' },
+    { path: '/env-manager', icon: KeyRound, key: 'nav.envManager' },
   { path: '/data-converter', icon: FileSpreadsheet, key: 'nav.dataConverter' },
     { path: '/chmod', icon: Terminal, key: 'nav.chmod' },
     { path: '/keycode', icon: Keyboard, key: 'nav.keycode' },
