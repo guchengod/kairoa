@@ -1,7 +1,7 @@
 <script lang="ts">
 import { translationsStore } from '$lib/stores/i18n';
 import { goto } from '$app/navigation';
- import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, Shield, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server } from 'lucide-svelte';
+ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, Shield, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault } from 'lucide-svelte';
 
   let translations = $derived($translationsStore);
   let searchQuery = $state('');
@@ -123,6 +123,7 @@ import { goto } from '$app/navigation';
     { path: '/chmod', icon: Terminal, key: 'nav.chmod', subItems: [] },
     { path: '/keycode', icon: Keyboard, key: 'nav.keycode', subItems: [] },
     { path: '/password-strength', icon: Shield, key: 'nav.passwordStrength', subItems: [] },
+    { path: '/password-vault', icon: Vault, key: 'nav.passwordVault', subItems: [] },
   ];
 
   // 展开所有菜单项和子菜单项为卡片
