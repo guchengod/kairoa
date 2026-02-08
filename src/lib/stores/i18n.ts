@@ -51,7 +51,8 @@ const translations = {
       dockerCommandsDesc: 'Generate Docker commands with customizable options for container and image management',
       configConverterDesc: 'Convert between configuration file formats (JSON, YAML, TOML, INI, XML, Properties, ENV, TOON)',
       hmacDesc: 'Generate HMAC (Hash-based Message Authentication Code) signatures',
-      envManagerDesc: 'Manage environment variables with import/export support'
+      envManagerDesc: 'Manage environment variables with import/export support',
+      asciiArtDesc: 'Convert text to ASCII art'
     },
     nav: {
       hash: 'Hash Calculator',
@@ -97,6 +98,7 @@ const translations = {
       dataConverter: 'CSV / JSON Converter',
       configConverter: 'Config Converter',
       envManager: 'Environment Variables Manager',
+      asciiArt: 'ASCII Art',
       settings: 'Settings'
     },
     dataConverter: {
@@ -2414,6 +2416,30 @@ const translations = {
       keyRequired: 'Key is required',
       messageRequired: 'Message is required',
       placeholder: 'Enter key and message to generate HMAC'
+    },
+    asciiArt: {
+      title: 'ASCII Art',
+      description: 'Convert text to ASCII art',
+      textTab: 'Text to ASCII',
+      imageTab: 'Image to ASCII',
+      input: 'Input Text',
+      inputPlaceholder: 'Enter text to convert...',
+      inputRequired: 'Please enter text',
+      width: 'Width',
+      generate: 'Generate',
+      output: 'Output',
+      copy: 'Copy',
+      copied: 'Copied',
+      download: 'Download',
+      clear: 'Clear',
+      dragDropImage: 'Click to select or drag and drop image',
+      supportedFormats: 'Supports PNG, JPG, GIF, etc.',
+      removeImage: 'Remove Image',
+      imageWidth: 'Image Width (characters)',
+      brightnessChars: 'Brightness Characters',
+      brightnessCharsHint: 'Characters from dark to light, used to represent different brightness levels',
+      converting: 'Converting...',
+      convert: 'Convert'
     }
   },
   zh: {
@@ -2463,7 +2489,8 @@ const translations = {
       dockerCommandsDesc: '生成可自定义选项的 Docker 命令，用于容器和镜像管理',
       configConverterDesc: '在配置文件格式之间转换（JSON、YAML、TOML、INI、XML、Properties、ENV、TOON）',
       hmacDesc: '生成 HMAC（基于哈希的消息认证码）签名',
-      envManagerDesc: '管理环境变量，支持导入导出'
+      envManagerDesc: '管理环境变量，支持导入导出',
+      asciiArtDesc: '将文本转换为 ASCII 艺术字'
     },
     nav: {
       hash: 'Hash 计算器',
@@ -2509,6 +2536,7 @@ const translations = {
       dataConverter: 'CSV / JSON 转换',
       configConverter: '配置转换器',
       envManager: '环境变量管理器',
+      asciiArt: 'ASCII 艺术',
       settings: '设置'
     },
     dataConverter: {
@@ -4826,6 +4854,30 @@ const translations = {
       keyRequired: '密钥是必需的',
       messageRequired: '消息是必需的',
       placeholder: '输入密钥和消息以生成 HMAC'
+    },
+    asciiArt: {
+      title: 'ASCII 艺术',
+      description: '将文本转换为 ASCII 艺术字',
+      textTab: '文本转 ASCII',
+      imageTab: '图片转 ASCII',
+      input: '输入文本',
+      inputPlaceholder: '输入要转换的文本...',
+      inputRequired: '请输入文本',
+      width: '宽度',
+      generate: '生成',
+      output: '输出结果',
+      copy: '复制',
+      copied: '已复制',
+      download: '下载',
+      clear: '清空',
+      dragDropImage: '点击选择或拖拽图片',
+      supportedFormats: '支持 PNG、JPG、GIF 等格式',
+      removeImage: '移除图片',
+      imageWidth: '图片宽度（字符数）',
+      brightnessChars: '亮度字符集',
+      brightnessCharsHint: '从暗到亮的字符，用于表示不同亮度级别',
+      converting: '转换中...',
+      convert: '转换'
     }
   }
 };
