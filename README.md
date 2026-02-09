@@ -132,6 +132,47 @@
 - Support for batch queries
 - Convenient for network diagnosis, security analysis, and geographic location positioning
 
+### 🔍 DNS Lookup
+- Query DNS records (A, AAAA, CNAME, MX, TXT, NS, SOA, SRV) for domains
+- Support for DNS over HTTPS (DoH) using Cloudflare DNS
+- Select multiple record types to query simultaneously
+- Display TTL and record data in organized tables
+- Quick selection buttons for common record types
+- Useful for DNS troubleshooting, domain configuration, and network analysis
+
+### 📋 HTTP Status Code Lookup
+- Query HTTP status codes with detailed descriptions and RFC references
+- Search by status code number or name/description
+- Display common status codes by default for quick reference
+- Support for all standard HTTP status codes (1xx-5xx)
+- Category classification: Informational, Success, Redirection, Client Error, Server Error
+- Copy status codes with one click
+- Useful for API development, debugging, and learning HTTP protocols
+
+### 📄 MIME Type Lookup
+- Query MIME types by file extension or MIME type string
+- Comprehensive database of MIME types including modern formats
+- Search by extension (e.g., pdf, jpg) or MIME type (e.g., application/pdf)
+- Display associated file extensions and descriptions
+- Useful for web development, file handling, and content-type configuration
+
+### 🔍 User-Agent Parser
+- Parse and analyze User-Agent strings to extract browser, OS, and device information
+- Display browser name, version, rendering engine
+- Show operating system and device type
+- Common User-Agent examples for quick testing
+- Use current browser's User-Agent with one click
+- Helpful for web development, analytics, and compatibility testing
+
+### 🔑 Environment Variables Manager
+- Manage environment variables with import/export support
+- Add, edit, and delete environment variables
+- Import from .env format text
+- Export to .env format
+- Copy all variables at once
+- Local storage persistence
+- Useful for development environment configuration and testing
+
 ### 🎨 Color Converter
 - Convert between color formats: HEX, RGB, HSL, HWB, LCH, CMYK, color names
 - Color picker with real-time preview
@@ -145,6 +186,18 @@
 - Sequential and repeated character detection
 - Estimated crack time calculation
 - Improvement suggestions for weak passwords
+
+### 🔐 Password Vault
+- Secure local password manager with AES encryption
+- Master password protection for all stored passwords
+- Add, edit, and delete password entries
+- Organize passwords by categories (general, work, personal, finance, social, development)
+- Search and filter passwords by title, username, or URL
+- Show/hide password visibility toggle
+- Import and export encrypted password files
+- Copy passwords with one click
+- All data encrypted and stored locally, never shared or uploaded
+- Reset vault option to clear all data
 
 ### 📜 Certificate Viewer
 - View and inspect certificate files (PEM, CRT, CER, KEY, CERT, DER, P12, PFX)
