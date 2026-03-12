@@ -5,14 +5,23 @@
   import { page } from '$app/stores';
   import { browser } from '$app/environment';
   
-  type EncodeType = 'base64' | 'image-base64' | 'url' | 'ascii' | 'jwt' | 'html' | 'unicode';
+  type EncodeType = 'base64' | 'image-base64' | 'url' | 'ascii' | 'jwt' | 'html' | 'unicode' | 'hex';
   
   let encodeType = $state<EncodeType>('base64');
   
   // Check URL parameter for type
   $effect(() => {
     const typeParam = $page.url.searchParams.get('type');
-    if (typeParam === 'base64' || typeParam === 'image-base64' || typeParam === 'url' || typeParam === 'ascii' || typeParam === 'jwt' || typeParam === 'html' || typeParam === 'unicode') {
+    if (
+      typeParam === 'base64' ||
+      typeParam === 'image-base64' ||
+      typeParam === 'url' ||
+      typeParam === 'ascii' ||
+      typeParam === 'jwt' ||
+      typeParam === 'html' ||
+      typeParam === 'unicode' ||
+      typeParam === 'hex'
+    ) {
       encodeType = typeParam as EncodeType;
     }
   });
@@ -260,6 +269,58 @@
       }
     } catch (error) {
       input = `Error: ${error instanceof Error ? error.message : 'Invalid Unicode encoding'}`;
+    }
+  }
+
+  // Hex encode/decode (UTF-8)
+  function encodeHex() {
+    if (!input.trim()) {
+      output = '';
+      return;
+    }
+
+    try {
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(input);
+      // 输出连续的十六进制串（每字节两位，不含空格），便于拷贝
+      output = Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    } catch (error) {
+      output = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
+  }
+
+  function decodeHex() {
+    if (!output.trim()) {
+      input = '';
+      return;
+    }
+
+    try {
+      // 允许包含空格、换行、0x 前缀等，只保留十六进制字符
+      const cleaned = output.replace(/[^0-9a-fA-F]/g, '');
+      if (!cleaned) {
+        throw new Error('No hex characters found');
+      }
+      if (cleaned.length % 2 !== 0) {
+        throw new Error('Hex string length must be even');
+      }
+
+      const bytes = new Uint8Array(cleaned.length / 2);
+      for (let i = 0; i < cleaned.length; i += 2) {
+        const byte = cleaned.slice(i, i + 2);
+        const value = parseInt(byte, 16);
+        if (Number.isNaN(value)) {
+          throw new Error(`Invalid hex byte: "${byte}"`);
+        }
+        bytes[i / 2] = value;
+      }
+
+      const decoder = new TextDecoder();
+      input = decoder.decode(bytes);
+    } catch (error) {
+      input = `Error: ${error instanceof Error ? error.message : 'Invalid hex string'}`;
     }
   }
 
@@ -515,6 +576,12 @@
         encodeUnicode();
       } else {
         decodeUnicode();
+      }
+    } else if (encodeType === 'hex') {
+      if (isEncoding) {
+        encodeHex();
+      } else {
+        decodeHex();
       }
     }
   }
@@ -842,6 +909,17 @@
           >
             URL
             {#if encodeType === 'url'}
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:bg-primary-400"></span>
+            {/if}
+          </button>
+          <button
+            onclick={() => switchEncodeType('hex')}
+            class="px-4 py-2 relative transition-colors font-medium {encodeType === 'hex'
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          >
+            {t('encodeDecode.textEncoded')}
+            {#if encodeType === 'hex'}
               <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:bg-primary-400"></span>
             {/if}
           </button>
@@ -1179,7 +1257,19 @@
                 bind:value={input}
                 readonly={!isEncoding}
                 placeholder={isEncoding 
-                  ? (encodeType === 'base64' ? t('encodeDecode.encodeBase64Placeholder') : encodeType === 'image-base64' ? t('encodeDecode.encodeImageBase64Placeholder') : encodeType === 'url' ? t('encodeDecode.encodeURLPlaceholder') : encodeType === 'html' ? t('encodeDecode.encodeHTMLPlaceholder') : encodeType === 'unicode' ? t('encodeDecode.encodeUnicodePlaceholder') : t('encodeDecode.encodeASCIIPlaceholder'))
+                  ? (encodeType === 'base64'
+                    ? t('encodeDecode.encodeBase64Placeholder')
+                    : encodeType === 'image-base64'
+                    ? t('encodeDecode.encodeImageBase64Placeholder')
+                    : encodeType === 'url'
+                    ? t('encodeDecode.encodeURLPlaceholder')
+                    : encodeType === 'html'
+                    ? t('encodeDecode.encodeHTMLPlaceholder')
+                    : encodeType === 'unicode'
+                    ? t('encodeDecode.encodeUnicodePlaceholder')
+                    : encodeType === 'hex'
+                    ? t('encodeDecode.encodeHexPlaceholder')
+                    : t('encodeDecode.encodeASCIIPlaceholder'))
                   : ''}
                 class="textarea h-full resize-none {!isEncoding ? 'bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed' : ''} {!isEncoding && input ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} transition-colors duration-300"
               ></textarea>
@@ -1237,6 +1327,8 @@
                   : unicodeMode === 'htmlDec' ? t('encodeDecode.unicodeHtmlDecEncoded')
                   : unicodeMode === 'url' ? t('encodeDecode.unicodeUrlEncoded')
                   : t('encodeDecode.unicodePythonEncoded'))
+                : encodeType === 'hex'
+                ? t('encodeDecode.textEncoded')
                 : t('encodeDecode.ascii')}
             </div>
             {#if isEncoding && output}
@@ -1261,9 +1353,21 @@
             <textarea
               bind:value={output}
               readonly={isEncoding}
-              placeholder={!isEncoding 
-                ? (encodeType === 'base64' ? t('encodeDecode.decodeBase64Placeholder') : encodeType === 'image-base64' ? t('encodeDecode.decodeImageBase64Placeholder') : encodeType === 'url' ? t('encodeDecode.decodeURLPlaceholder') : encodeType === 'html' ? t('encodeDecode.decodeHTMLPlaceholder') : encodeType === 'unicode' ? t('encodeDecode.decodeUnicodePlaceholder') : t('encodeDecode.decodeASCIIPlaceholder'))
-                : ''}
+                placeholder={!isEncoding 
+                  ? (encodeType === 'base64'
+                    ? t('encodeDecode.decodeBase64Placeholder')
+                    : encodeType === 'image-base64'
+                    ? t('encodeDecode.decodeImageBase64Placeholder')
+                    : encodeType === 'url'
+                    ? t('encodeDecode.decodeURLPlaceholder')
+                    : encodeType === 'html'
+                    ? t('encodeDecode.decodeHTMLPlaceholder')
+                    : encodeType === 'unicode'
+                    ? t('encodeDecode.decodeUnicodePlaceholder')
+                    : encodeType === 'hex'
+                    ? t('encodeDecode.decodeHexPlaceholder')
+                    : t('encodeDecode.decodeASCIIPlaceholder'))
+                  : ''}
               class="textarea h-full resize-none font-mono text-sm {copied ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} {isEncoding ? 'bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed' : ''} transition-colors duration-300"
             ></textarea>
           </div>

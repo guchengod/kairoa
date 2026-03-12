@@ -58,6 +58,7 @@
 ### 🔧 Encode/Decode
 - **Base64**: Encode/decode text and images
 - **URL**: Encode/decode URL strings
+- **Hex**: Encode/decode text as hexadecimal
 - **Image/Base64**: Convert images to/from Base64 format
 - Image preview and download support
 - Side-by-side input/output layout
