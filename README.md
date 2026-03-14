@@ -82,6 +82,16 @@
 - Support for custom message formats
 - Convenient for developing and debugging real-time applications and monitoring systems
 
+### 🤖 AI Chat
+- Multi-provider support: OpenAI, DeepSeek, Anthropic, Azure OpenAI, and custom providers
+- Manage multiple API configurations with different models per provider
+- Chat history with session management (save, load, switch, delete sessions)
+- Markdown rendering with syntax highlighting for code blocks
+- Stop generation functionality to cancel ongoing responses
+- Secure local storage for API keys with encryption
+- Customizable system prompts per configuration
+- Real-time streaming responses
+
 ### 🐳 Docker Commands Generator
 - Visually generate common Docker commands
 - Container management: run, stop, delete, view logs, etc.

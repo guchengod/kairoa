@@ -3,9 +3,10 @@
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
- import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone, CheckCircle, Route } from 'lucide-svelte';
+import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone, CheckCircle, Route, MessageSquare } from 'lucide-svelte';
 
   const navItems = [
+    { path: '/ai-chat', icon: MessageSquare, key: 'nav.aiChat' },
     { path: '/api-client', icon: Globe, key: 'nav.apiClient' },
     { path: '/websocket', icon: Radio, key: 'nav.websocket' },
     { path: '/ip-lookup', icon: Network, key: 'nav.ipLookup' },

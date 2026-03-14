@@ -3,12 +3,17 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  html, body {
     @apply bg-gray-50 text-gray-900;
+    min-height: 100vh;
   }
 
   .dark {
     @apply bg-gray-900 text-gray-100;
+  }
+
+  .dark html, .dark body {
+    @apply bg-gray-900;
   }
   
   /* Solarized Light Theme */
@@ -290,5 +295,125 @@
   .app-title-zh:hover {
     letter-spacing: 0.15em;
   }
+}
+
+/* Markdown styles */
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  color: var(--tw-prose-headings);
+}
+
+.prose h1 { font-size: 1.5em; }
+.prose h2 { font-size: 1.25em; }
+.prose h3 { font-size: 1.1em; }
+
+.prose p {
+  margin: 0.5em 0;
+  line-height: 1.6;
+}
+
+.prose ul, .prose ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.prose li {
+  margin: 0.25em 0;
+}
+
+.prose code {
+  background-color: #f1f5f9;
+  padding: 0.125em 0.375em;
+  border-radius: 0.25em;
+  font-size: 0.875em;
+  color: #db2777;
+}
+
+.dark .prose code {
+  background-color: #1e293b;
+  color: #f472b6;
+}
+
+.prose pre {
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5em;
+  padding: 0.75em 1em;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+
+.dark .prose pre {
+  background-color: #1e293b;
+  border-color: #334155;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: 0.875em;
+}
+
+.prose blockquote {
+  border-left: 4px solid #3b82f6;
+  background-color: #f8fafc;
+  padding: 0.5em 1em;
+  margin: 0.75em 0;
+  font-style: normal;
+}
+
+.dark .prose blockquote {
+  background-color: rgba(30, 41, 59, 0.5);
+}
+
+.prose a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.prose a:hover {
+  text-decoration: underline;
+}
+
+.dark .prose a {
+  color: #60a5fa;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 1em 0;
+}
+
+.dark .prose hr {
+  border-color: #334155;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75em 0;
+}
+
+.prose th, .prose td {
+  border: 1px solid #e2e8f0;
+  padding: 0.5em;
+  text-align: left;
+}
+
+.prose th {
+  background-color: #f8fafc;
+  font-weight: 600;
+}
+
+.dark .prose th, .dark .prose td {
+  border-color: #334155;
+}
+
+.dark .prose th {
+  background-color: #1e293b;
 }
 

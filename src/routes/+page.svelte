@@ -1,7 +1,7 @@
 <script lang="ts">
 import { translationsStore } from '$lib/stores/i18n';
 import { goto } from '$app/navigation';
- import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, Shield, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone, CheckCircle, Route } from 'lucide-svelte';
+ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, Shield, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone, CheckCircle, Route, MessageSquare } from 'lucide-svelte';
 
   let translations = $derived($translationsStore);
   let searchQuery = $state('');
@@ -28,6 +28,7 @@ import { goto } from '$app/navigation';
   const navItems = [
     { path: '/api-client', icon: Globe, key: 'nav.apiClient', subItems: [] },
     { path: '/websocket', icon: Radio, key: 'nav.websocket', subItems: [] },
+    { path: '/ai-chat', icon: MessageSquare, key: 'nav.aiChat', subItems: [] },
     { path: '/ip-lookup', icon: Network, key: 'nav.ipLookup', subItems: [] },
     { path: '/dns-lookup', icon: Server, key: 'nav.dnsLookup', subItems: [] },
     { path: '/git-commands', icon: GitBranch, key: 'nav.gitCommands', subItems: [] },
@@ -45,15 +46,16 @@ import { goto } from '$app/navigation';
         { label: 'HMAC', key: 'nav.hmac', type: null, directPath: '/generator?tab=hmac' }
       ]
     },
-    { 
-      path: '/encode-decode', 
-      icon: Code, 
+    {
+      path: '/encode-decode',
+      icon: Code,
       key: 'nav.encodeDecode',
       subItems: [
         { label: 'Base64', key: 'encodeDecode.base64', type: 'base64' },
         { label: 'Image Base64', key: 'encodeDecode.imageBase64', type: 'image-base64' },
         { label: 'URL', key: 'encodeDecode.urlEncoded', type: 'url' },
         { label: 'ASCII', key: 'encodeDecode.ascii', type: 'ascii' },
+        { label: 'Hex', key: 'encodeDecode.hexadecimal', type: 'hex' },
         { label: 'JWT', key: 'jwt.title', type: 'jwt' }
       ]
     },
