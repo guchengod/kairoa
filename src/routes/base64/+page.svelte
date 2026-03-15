@@ -1,5 +1,7 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
+  import { getToolData } from '$lib/stores/deepLink';
+  import { onMount } from 'svelte';
   
   let input = $state('');
   let output = $state('');
@@ -16,6 +18,22 @@
     }
     return value || key;
   }
+
+  onMount(() => {
+    // Check for deep link data
+    const deepLinkData = getToolData('base64');
+    if (deepLinkData?.text) {
+      input = deepLinkData.text;
+      // Set action (encode/decode)
+      if (deepLinkData.action === 'decode') {
+        isEncoding = false;
+        decode();
+      } else {
+        isEncoding = true;
+        encode();
+      }
+    }
+  });
 
   function encode() {
     if (!input.trim()) {

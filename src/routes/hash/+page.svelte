@@ -1,5 +1,6 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
+  import { getToolData } from '$lib/stores/deepLink';
   import CryptoJS from 'crypto-js';
   import { onDestroy, onMount } from 'svelte';
   import { browser } from '$app/environment';
@@ -43,6 +44,15 @@
   }
 
   onMount(() => {
+    // Check for deep link data
+    const deepLinkData = getToolData('hash');
+    if (deepLinkData?.text) {
+      input = deepLinkData.text;
+      inputType = 'text';
+      // Auto-calculate after setting input
+      setTimeout(() => calculateTextHashes(), 100);
+    }
+    
     if (browser && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
       import('@tauri-apps/api/event').then((eventModule) => {
         eventModule.listen('tauri://drag-drop', async (event: any) => {

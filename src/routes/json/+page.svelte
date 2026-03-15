@@ -1,5 +1,7 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
+  import { getToolData } from '$lib/stores/deepLink';
+  import { onMount } from 'svelte';
   
   let input = $state('');
   let error = $state('');
@@ -16,6 +18,16 @@
     }
     return value || key;
   }
+
+  onMount(() => {
+    // Check for deep link data
+    const deepLinkData = getToolData('json');
+    if (deepLinkData?.text) {
+      input = deepLinkData.text;
+      // Auto-format after setting input
+      setTimeout(() => formatJSON(), 100);
+    }
+  });
 
   function formatJSON() {
     if (!input.trim()) {

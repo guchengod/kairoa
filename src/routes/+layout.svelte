@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { theme } from '$lib/stores/theme';
   import { locale } from '$lib/stores/i18n';
+  import { initDeepLinkListener } from '$lib/stores/deepLink';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import AboutDialog from '$lib/components/AboutDialog.svelte';
   import UpdateDialog from '$lib/components/UpdateDialog.svelte';
@@ -16,6 +18,9 @@
   onMount(() => {
     theme.init();
     locale.init();
+    
+    // Initialize deep link listener
+    initDeepLinkListener((route: string) => goto(route));
     
     // 添加键盘快捷键 Cmd+I 来显示 About 对话框（用于测试）
     const handleKeyDown = (e: KeyboardEvent) => {

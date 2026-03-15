@@ -1,6 +1,8 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
+  import { getToolData } from '$lib/stores/deepLink';
   import { ChevronDown, Search, X } from 'lucide-svelte';
+  import { onMount } from 'svelte';
   
   type ConversionType = 'timestamp' | 'date';
   
@@ -249,6 +251,20 @@
     }
     return value || key;
   }
+
+  onMount(() => {
+    // Check for deep link data
+    const deepLinkData = getToolData('time');
+    if (deepLinkData) {
+      if (deepLinkData.timestamp) {
+        timestampInput = deepLinkData.timestamp;
+        conversionType = 'timestamp';
+      } else if (deepLinkData.format) {
+        dateInput = deepLinkData.format;
+        conversionType = 'date';
+      }
+    }
+  });
 
   function formatDate(date: Date, tz: string): { spaceFormat: string; isoFormat: string } {
     const formatter = new Intl.DateTimeFormat('en-US', {

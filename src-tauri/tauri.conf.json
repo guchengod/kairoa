@@ -27,13 +27,16 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": ["default"]
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
+    "iOS": {},
+    "android": {},
     "linux": {
       "deb": {},
       "rpm": {},
@@ -47,6 +50,9 @@
       "providerShortName": null,
       "entitlements": null
     },
+    "windows": {
+      "wix": {}
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -56,6 +62,11 @@
     ]
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["kairoa"]
+      }
+    },
     "updater": {
       "active": true,
       "endpoints": [

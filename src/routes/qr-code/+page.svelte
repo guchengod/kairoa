@@ -1,8 +1,10 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
+  import { getToolData } from '$lib/stores/deepLink';
   import { Download, Trash2 } from 'lucide-svelte';
   import QRCode from 'qrcode';
   import { browser } from '$app/environment';
+  import { onMount } from 'svelte';
   
   let translations = $derived($translationsStore);
   
@@ -45,6 +47,22 @@
       });
     }
   }
+
+  onMount(() => {
+    // Check for deep link data
+    const deepLinkData = getToolData('qr-code');
+    if (deepLinkData?.text) {
+      input = deepLinkData.text;
+      if (deepLinkData.size) {
+        const s = parseInt(deepLinkData.size, 10);
+        if (!isNaN(s) && s >= 100 && s <= 1000) {
+          qrSize = s;
+        }
+      }
+      // Auto-generate after setting input
+      setTimeout(() => generateQRCode(), 100);
+    }
+  });
 
   async function generateQRCode() {
     if (!input.trim()) {

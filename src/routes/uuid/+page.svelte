@@ -1,7 +1,9 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
+  import { getToolData } from '$lib/stores/deepLink';
   
   import CryptoJS from 'crypto-js';
+  import { onMount } from 'svelte';
   
   type GeneratorType = 'uuid' | 'ulid';
   type UUIDVersion = 'v1' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7' | 'v8';
@@ -34,6 +36,37 @@
     }
     return value || key;
   }
+
+  onMount(() => {
+    // Check for deep link data
+    const deepLinkData = getToolData('uuid');
+    if (deepLinkData) {
+      if (deepLinkData.count) {
+        const c = parseInt(deepLinkData.count, 10);
+        if (!isNaN(c) && c >= 1 && c <= 100) {
+          count = c;
+        }
+      }
+      if (deepLinkData.version && ['v1', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8'].includes(deepLinkData.version)) {
+        uuidVersion = deepLinkData.version as UUIDVersion;
+      }
+      // Auto-generate after setting params
+      setTimeout(() => generate(), 100);
+    }
+    
+    // Check for ULID deep link
+    const ulidData = getToolData('ulid');
+    if (ulidData) {
+      generatorType = 'ulid';
+      if (ulidData.count) {
+        const c = parseInt(ulidData.count, 10);
+        if (!isNaN(c) && c >= 1 && c <= 100) {
+          count = c;
+        }
+      }
+      setTimeout(() => generate(), 100);
+    }
+  });
 
   // Base32 字符集（ULID 使用，排除 I, L, O, U）
   const BASE32_CHARS = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
