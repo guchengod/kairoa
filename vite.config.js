@@ -1,5 +1,7 @@
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
+import { createRequire } from "module";
+const _require = createRequire(import.meta.url);
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
@@ -64,6 +66,25 @@ export default defineConfig(async () => ({
 
   optimizeDeps: {
     include: ["@covoyage/file2md", "xlsx", "pdfjs-dist"],
+    esbuildOptions: {
+      plugins: [
+        {
+          name: "redirect-pdfjs",
+          setup(build) {
+            build.onResolve({ filter: /^pdfjs-dist($|\/)/, namespace: "file" }, (args) => {
+              if (args.resolveDir?.includes("@covoyage/file2md")) {
+                try {
+                  const resolved = _require.resolve(args.path);
+                  return { path: resolved };
+                } catch {
+                  return;
+                }
+              }
+            });
+          },
+        },
+      ],
+    },
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
