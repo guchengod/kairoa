@@ -7,6 +7,15 @@ const _require = createRequire(import.meta.url);
 const host = process.env.TAURI_DEV_HOST;
 
 const NODE_BUILTINS = ["child_process", "fs", "module", "path", "url"];
+const FILE2MD_OPTIONAL_DEPS = [
+  "@azure/ai-content-understanding",
+  "@azure/core-auth",
+  "@azure/identity",
+  "@kenjiuno/msgreader",
+  "jschardet",
+  "magika",
+  "youtube-transcript-plus",
+];
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
@@ -22,6 +31,9 @@ export default defineConfig(async () => ({
           }
           if (NODE_BUILTINS.includes(id)) {
             return "\0file2md-node-stub:" + id;
+          }
+          if (FILE2MD_OPTIONAL_DEPS.includes(id)) {
+            return "\0file2md-stub:" + id.replace(/\//g, "_");
           }
           if (
             id.includes("transcribe-audio-node") ||
