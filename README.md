@@ -45,8 +45,9 @@
 
 ### 📝 JSON Formatter
 - Format and minify JSON
-- Syntax highlighting for formatted JSON
-- Real-time validation
+- Syntax highlighting with line numbers
+- Sticky toolbar with real-time stats (lines, characters)
+- Real-time validation with inline error display
 - Copy formatted JSON to clipboard
 
 ### ⚙️ Config Converter
@@ -59,6 +60,8 @@
 - **Base64**: Encode/decode text and images
 - **URL**: Encode/decode URL strings
 - **Hex**: Encode/decode text as hexadecimal
+- **GZIP**: Compress/decompress text with GZIP (Base64-encoded output)
+- **Bech32**: Encode/decode Bech32/Bech32m strings (BIP-173/BIP-350)
 - **Image/Base64**: Convert images to/from Base64 format
 - Image preview and download support
 - Side-by-side input/output layout
@@ -67,6 +70,7 @@
 - Send HTTP requests with multiple methods (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS)
 - Custom request headers
 - Multiple body types: JSON, Text, XML, Form Data, URL Encoded
+- **Syntax highlighting** for JSON and XML body editors with format/minify buttons
 - Multi-tab support for managing multiple requests
 - Response display: status code, headers, body, and response time
 - **cURL Import/Export**: Import requests from cURL commands or export requests as cURL commands
@@ -192,9 +196,10 @@
 - Useful for development environment configuration and testing
 
 ### 🎨 Color Converter
-- Convert between color formats: HEX, RGB, HSL, HWB, LCH, CMYK, color names
+- Convert between color formats: HEX, RGB, HSL, HWB, LCH, **OKLCH**, CMYK, color names
 - Color picker with real-time preview
 - Bidirectional conversion between any supported format
+- OKLCH support based on the OKLab perceptual color space (BIP-173)
 - All formats can be edited and converted in real-time
 
 ### 🔒 Password Strength Checker
