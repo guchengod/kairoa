@@ -206,6 +206,27 @@
   let bodyTextareaRef = $state<HTMLTextAreaElement | null>(null);
   let jsonOverlayRef = $state<HTMLElement | null>(null);
   let xmlOverlayRef = $state<HTMLElement | null>(null);
+  let responseOverlayRef = $state<HTMLElement | null>(null);
+  let responseTextareaRef = $state<HTMLTextAreaElement | null>(null);
+
+  let highlightedResponse = $derived.by(() => {
+    const body = activeTab?.responseBody ?? '';
+    if (!body.trim()) return '';
+    if (body.length > 100000) return body;
+    try {
+      JSON.parse(body);
+      return hljs.highlight(body, { language: 'json' }).value;
+    } catch {
+      return body;
+    }
+  });
+
+  function syncResponseScroll() {
+    if (responseOverlayRef && responseTextareaRef) {
+      responseOverlayRef.scrollTop = responseTextareaRef.scrollTop;
+      responseOverlayRef.scrollLeft = responseTextareaRef.scrollLeft;
+    }
+  }
   const STORAGE_KEY = 'apiClient.tabs.v1';
   const STORAGE_ACTIVE_KEY = 'apiClient.activeTabId.v1';
   let hasLoadedFromStorage = false;
@@ -2022,11 +2043,17 @@
                 {/if}
               </div>
               {#if activeTab.responseBody}
-                <textarea
-                  value={activeTab.responseBody}
-                  readonly
-                  class="textarea font-mono text-sm h-[400px] resize-none overflow-y-auto {activeTab.copied ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} transition-colors duration-300"
-                ></textarea>
+                <div class="json-editor-container bordered h-[400px] {activeTab.copied ? 'border-green-300 dark:border-green-700' : ''}">
+                  <pre class="json-editor-overlay textarea font-mono text-sm" bind:this={responseOverlayRef} aria-hidden="true"><code class="hljs language-json">{@html highlightedResponse}</code></pre>
+                  <textarea
+                    bind:this={responseTextareaRef}
+                    value={activeTab.responseBody}
+                    readonly
+                    wrap={"off" as any}
+                    class="json-editor-textarea textarea font-mono text-sm h-full {activeTab.copied ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} transition-colors duration-300"
+                    onscroll={syncResponseScroll}
+                  ></textarea>
+                </div>
               {:else}
                 <div class="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 h-[400px] overflow-y-auto flex items-center justify-center">
                   <span class="text-sm text-gray-400 dark:text-gray-500">{t('apiClient.noResponseBody')}</span>
