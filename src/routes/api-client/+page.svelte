@@ -1,6 +1,6 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
-  import { Copy, Check, Send, Trash2, Plus, X, Download, Upload, ChevronDown, Code, Braces } from 'lucide-svelte';
+  import { Copy, Check, Send, Trash2, Plus, X, Download, Upload, ChevronDown, ChevronRight, Code, Braces, FolderPlus, Folder, MoreVertical, Pencil, ArrowRight, Inbox } from 'lucide-svelte';
   import { browser } from '$app/environment';
   import hljs from 'highlight.js';
   
@@ -59,6 +59,13 @@
     responseTime: number | null;
     error: string;
     copied: boolean;
+    collectionId: string | null;
+  }
+
+  interface Collection {
+    id: string;
+    name: string;
+    collapsed: boolean;
   }
   
   let tabs = $state<TabData[]>([
@@ -79,9 +86,12 @@
       responseBody: '',
       responseTime: null,
       error: '',
-      copied: false
+      copied: false,
+      collectionId: null
     }
   ]);
+
+  let collections = $state<Collection[]>([]);
   
   let activeTabId = $state('');
 
@@ -106,43 +116,6 @@
   // 获取当前激活的标签页
   let activeTab = $derived(tabs.find(tab => tab.id === activeTabId) || tabs[0]);
 
-  // 添加新标签页
-  function addTab() {
-    const newTab: TabData = {
-      id: crypto.randomUUID(),
-      name: 'New Request',
-      method: 'GET',
-      url: '',
-      headers: [{ key: '', value: '', enabled: true }],
-      bodyType: 'none',
-      bodyJson: '',
-      bodyText: '',
-      bodyXml: '',
-      formData: [{ key: '', value: '', enabled: true, type: 'text', file: null }],
-      isSending: false,
-      responseStatus: null,
-      responseHeaders: {},
-      responseBody: '',
-      responseTime: null,
-      error: '',
-      copied: false
-    };
-    tabs = [...tabs, newTab];
-    activeTabId = newTab.id;
-  }
-
-  // 删除标签页
-  function removeTab(tabId: string) {
-    if (tabs.length === 1) return; // 至少保留一个标签页
-    
-    tabs = tabs.filter(tab => tab.id !== tabId);
-    
-    // 如果删除的是当前激活的标签页，切换到第一个标签页
-    if (activeTabId === tabId) {
-      activeTabId = tabs[0].id;
-    }
-  }
-
   // 切换标签页
   function setActiveTab(tabId: string) {
     activeTabId = tabId;
@@ -160,6 +133,104 @@
     } else {
       tab.name = 'New Request';
     }
+  }
+
+  // 添加新标签页
+  function addTab(collectionId: string | null = null) {
+    const newTab: TabData = {
+      id: crypto.randomUUID(),
+      name: 'New Request',
+      method: 'GET',
+      url: '',
+      headers: [{ key: '', value: '', enabled: true }],
+      bodyType: 'none',
+      bodyJson: '',
+      bodyText: '',
+      bodyXml: '',
+      formData: [{ key: '', value: '', enabled: true, type: 'text', file: null }],
+      isSending: false,
+      responseStatus: null,
+      responseHeaders: {},
+      responseBody: '',
+      responseTime: null,
+      error: '',
+      copied: false,
+      collectionId
+    };
+    tabs = [...tabs, newTab];
+    activeTabId = newTab.id;
+    if (collectionId) {
+      const col = collections.find(c => c.id === collectionId);
+      if (col) col.collapsed = false;
+    }
+  }
+
+  // 删除标签页
+  function removeTab(tabId: string) {
+    if (tabs.length === 1) return;
+    tabs = tabs.filter(tab => tab.id !== tabId);
+    if (activeTabId === tabId) {
+      activeTabId = tabs[0].id;
+    }
+  }
+
+  // ── Collection management ──
+  function addCollection() {
+    const newCol: Collection = {
+      id: crypto.randomUUID(),
+      name: t('apiClient.newCollection'),
+      collapsed: false
+    };
+    collections = [...collections, newCol];
+  }
+
+  function renameCollection(colId: string, name: string) {
+    const col = collections.find(c => c.id === colId);
+    if (col) col.name = name;
+  }
+
+  function deleteCollection(colId: string) {
+    tabs.forEach(tab => {
+      if (tab.collectionId === colId) tab.collectionId = null;
+    });
+    collections = collections.filter(c => c.id !== colId);
+  }
+
+  function toggleCollapse(colId: string) {
+    const col = collections.find(c => c.id === colId);
+    if (col) col.collapsed = !col.collapsed;
+  }
+
+  function moveTabToCollection(tabId: string, collectionId: string | null) {
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab) tab.collectionId = collectionId;
+  }
+
+  function tabsInCollection(colId: string) {
+    return tabs.filter(t => t.collectionId === colId);
+  }
+
+  let ungroupedTabs = $derived(tabs.filter(t => t.collectionId === null));
+
+  let showCollectionMenu = $state<string | null>(null);
+  let showMoveMenu = $state<string | null>(null);
+  let editingCollectionId = $state<string | null>(null);
+  let editingCollectionName = $state('');
+
+  function startRenameCollection(colId: string) {
+    const col = collections.find(c => c.id === colId);
+    if (col) {
+      editingCollectionId = colId;
+      editingCollectionName = col.name;
+    }
+  }
+
+  function confirmRenameCollection() {
+    if (editingCollectionId && editingCollectionName.trim()) {
+      renameCollection(editingCollectionId, editingCollectionName.trim());
+    }
+    editingCollectionId = null;
+    editingCollectionName = '';
   }
 
   function addHeader(tab: TabData) {
@@ -229,6 +300,7 @@
   }
   const STORAGE_KEY = 'apiClient.tabs.v1';
   const STORAGE_ACTIVE_KEY = 'apiClient.activeTabId.v1';
+  const STORAGE_COLLECTIONS_KEY = 'apiClient.collections.v1';
   let hasLoadedFromStorage = false;
 
   // 自动调整 textarea 高度，保持最小高度 150px，且不超过视口底部
@@ -256,17 +328,22 @@
     try {
       const savedTabs = localStorage.getItem(STORAGE_KEY);
       const savedActive = localStorage.getItem(STORAGE_ACTIVE_KEY);
+      const savedCollections = localStorage.getItem(STORAGE_COLLECTIONS_KEY);
+
+      if (savedCollections) {
+        collections = JSON.parse(savedCollections);
+      }
 
       if (savedTabs) {
         const parsed = JSON.parse(savedTabs) as TabData[];
-        // 确保必要字段存在，并重置不可序列化的 file 字段
         tabs = parsed.map((tab) => ({
           ...tab,
           formData: (tab.formData || []).map((item) => ({
             ...item,
             file: null
           })),
-          isSending: false
+          isSending: false,
+          collectionId: tab.collectionId ?? null
         }));
       }
 
@@ -295,6 +372,7 @@
       }));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
       localStorage.setItem(STORAGE_ACTIVE_KEY, activeTabId);
+      localStorage.setItem(STORAGE_COLLECTIONS_KEY, JSON.stringify(collections));
     } catch (error) {
       console.error('Failed to save API client tabs:', error);
     }
@@ -303,10 +381,11 @@
   // 首次加载时从本地存储恢复
   loadSavedTabs();
 
-  // tabs 或 activeTabId 变化时保存
+  // tabs、activeTabId 或 collections 变化时保存
   $effect(() => {
     tabs;
     activeTabId;
+    collections;
     saveTabs();
   });
 
@@ -1292,6 +1371,131 @@
     showExportCurlDialog = true;
   }
 
+  // ── Bulk export / import ──
+  function sanitizeTabForExport(tab: TabData) {
+    return {
+      name: tab.name,
+      method: tab.method,
+      url: tab.url,
+      headers: tab.headers.filter(h => h.key.trim()),
+      bodyType: tab.bodyType,
+      bodyJson: tab.bodyJson,
+      bodyText: tab.bodyText,
+      bodyXml: tab.bodyXml,
+      formData: (tab.formData || []).map(({ key, value, enabled, type }) => ({ key, value, enabled, type })),
+      collectionId: tab.collectionId
+    };
+  }
+
+  function exportAllRequests() {
+    const data = {
+      collections: collections.map(c => ({ id: c.id, name: c.name })),
+      requests: tabs.map(sanitizeTabForExport)
+    };
+    downloadJson(data, `Kairoa-api-all-${Date.now()}.json`);
+  }
+
+  function exportCollection(colId: string) {
+    const col = collections.find(c => c.id === colId);
+    if (!col) return;
+    const data = {
+      collections: [{ id: col.id, name: col.name }],
+      requests: tabs.filter(t => t.collectionId === colId).map(sanitizeTabForExport)
+    };
+    downloadJson(data, `Kairoa-api-${col.name}-${Date.now()}.json`);
+  }
+
+  function downloadJson(data: any, filename: string) {
+    const json = JSON.stringify(data, null, 2);
+    const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+    if (isTauri) {
+      // Tauri: use dialog save
+      import('@tauri-apps/plugin-dialog').then(async (dialogMod) => {
+        const { save } = dialogMod;
+        const filePath = await save({
+          defaultPath: filename,
+          filters: [{ name: 'JSON', extensions: ['json'] }]
+        });
+        if (!filePath) return;
+        const encoder = new TextEncoder();
+        const fsMod = await import('@tauri-apps/plugin-fs');
+        await fsMod.writeFile(filePath, encoder.encode(json));
+      }).catch((err) => {
+        console.error('Tauri export failed, falling back to browser download:', err);
+        browserDownload(json, filename);
+      });
+    } else {
+      browserDownload(json, filename);
+    }
+  }
+
+  function browserDownload(content: string, filename: string) {
+    const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  let showImportDialog = $state(false);
+  let importFileInput = $state<HTMLInputElement | null>(null);
+
+  function triggerImport() {
+    if (importFileInput) importFileInput.click();
+  }
+
+  async function handleImportFile(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.requests || !Array.isArray(data.requests)) return;
+
+      // Import collections
+      if (data.collections && Array.isArray(data.collections)) {
+        for (const impCol of data.collections) {
+          if (!collections.find(c => c.id === impCol.id)) {
+            collections = [...collections, { id: impCol.id, name: impCol.name, collapsed: false }];
+          }
+        }
+      }
+
+      // Import requests
+      for (const req of data.requests) {
+        const newTab: TabData = {
+          id: crypto.randomUUID(),
+          name: req.name || 'Imported',
+          method: req.method || 'GET',
+          url: req.url || '',
+          headers: req.headers || [{ key: '', value: '', enabled: true }],
+          bodyType: req.bodyType || 'none',
+          bodyJson: req.bodyJson || '',
+          bodyText: req.bodyText || '',
+          bodyXml: req.bodyXml || '',
+          formData: (req.formData || []).map((item: any) => ({ ...item, file: null })),
+          isSending: false,
+          responseStatus: null,
+          responseHeaders: {},
+          responseBody: '',
+          responseTime: null,
+          error: '',
+          copied: false,
+          collectionId: req.collectionId || null
+        };
+        tabs = [...tabs, newTab];
+      }
+    } catch (err) {
+      console.error('Import failed:', err);
+    }
+    target.value = '';
+  }
+
   // 复制 curl 命令
   async function copyCurlCommand() {
     try {
@@ -1419,38 +1623,220 @@
   }
 </script>
 
-<div class="w-full ml-0 mr-0 p-2 space-y-6">
-  <!-- 标签页导航 -->
-  <div class="card p-0">
-    <div class="flex items-center border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-      {#each tabs as tab}
-        <div class="flex items-center">
-          <button
-            onclick={() => setActiveTab(tab.id)}
-            class="flex items-center gap-2 px-4 py-3 border-b-2 transition-colors whitespace-nowrap {activeTabId === tab.id
-              ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400 bg-gray-50 dark:bg-gray-800'
-              : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'}"
-          >
-            <span class="text-sm font-medium">{tab.name}</span>
-          </button>
-          {#if tabs.length > 1}
+<div class="w-full ml-0 mr-0 p-2 flex gap-4 h-[calc(100vh-2rem)]">
+  <input type="file" accept=".json" bind:this={importFileInput} onchange={handleImportFile} class="hidden" />
+  <!-- Collections Sidebar -->
+  <div class="card p-0 w-64 flex-shrink-0 flex flex-col overflow-hidden">
+    <div class="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+      <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('apiClient.collections')}</span>
+      <div class="flex items-center gap-1">
+        <button
+          onclick={exportAllRequests}
+          class="p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          title={t('apiClient.exportAll')}
+        >
+          <Download class="w-4 h-4" />
+        </button>
+        <button
+          onclick={triggerImport}
+          class="p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          title={t('apiClient.importRequests')}
+        >
+          <Upload class="w-4 h-4" />
+        </button>
+        <button
+          onclick={addCollection}
+          class="p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          title={t('apiClient.newCollection')}
+        >
+          <FolderPlus class="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto py-1">
+      {#each collections as col}
+        <div class="group/col">
+          <div class="flex items-center px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
             <button
-              onclick={() => removeTab(tab.id)}
-              class="px-2 py-3 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              onclick={() => toggleCollapse(col.id)}
+              class="p-0.5 text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex-shrink-0"
             >
-              <X class="w-3 h-3" />
+              {#if col.collapsed}
+                <ChevronRight class="w-3.5 h-3.5" />
+              {:else}
+                <ChevronDown class="w-3.5 h-3.5" />
+              {/if}
             </button>
+            <Folder class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0 ml-0.5" />
+            {#if editingCollectionId === col.id}
+              <input
+                type="text"
+                value={editingCollectionName}
+                oninput={(e) => editingCollectionName = (e.target as HTMLInputElement).value}
+                onkeydown={(e) => { if (e.key === 'Enter') confirmRenameCollection(); if (e.key === 'Escape') editingCollectionId = null; }}
+                onblur={confirmRenameCollection}
+                class="flex-1 ml-1.5 text-sm bg-transparent border-b border-primary-500 outline-none text-gray-900 dark:text-gray-100"
+                id={`col-edit-${col.id}`}
+              />
+            {:else}
+              <button
+                onclick={() => toggleCollapse(col.id)}
+                class="flex-1 text-left text-sm font-medium text-gray-700 dark:text-gray-300 ml-1.5 truncate"
+              >
+                {col.name}
+              </button>
+            {/if}
+            <button
+              onclick={() => showCollectionMenu = showCollectionMenu === col.id ? null : col.id}
+              class="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 opacity-0 group-hover/col:opacity-100 transition-opacity flex-shrink-0"
+            >
+              <MoreVertical class="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {#if showCollectionMenu === col.id}
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="fixed inset-0 z-10" onclick={() => showCollectionMenu = null}></div>
+            <div class="absolute ml-7 mt-1 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 py-1">
+              <button
+                onclick={() => { addTab(col.id); showCollectionMenu = null; }}
+                class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+              >
+                <Plus class="w-3.5 h-3.5" /> {t('apiClient.newRequest')}
+              </button>
+              <button
+                onclick={() => { startRenameCollection(col.id); showCollectionMenu = null; }}
+                class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+              >
+                <Pencil class="w-3.5 h-3.5" /> {t('apiClient.rename')}
+              </button>
+              <button
+                onclick={() => { exportCollection(col.id); showCollectionMenu = null; }}
+                class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+              >
+                <Download class="w-3.5 h-3.5" /> {t('apiClient.exportCollection')}
+              </button>
+              <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+              <button
+                onclick={() => { deleteCollection(col.id); showCollectionMenu = null; }}
+                class="w-full text-left px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+              >
+                <Trash2 class="w-3.5 h-3.5" /> {t('apiClient.delete')}
+              </button>
+            </div>
+          {/if}
+          {#if !col.collapsed}
+            {#each tabsInCollection(col.id) as tab (tab.id)}
+              <div
+                class="group/req flex items-center pl-8 pr-2 py-1 cursor-pointer {activeTabId === tab.id ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-600 dark:text-gray-400'} transition-colors relative"
+                onclick={() => setActiveTab(tab.id)}
+              >
+                <span class="text-xs font-mono font-bold flex-shrink-0 w-10 {tab.method === 'GET' ? 'text-green-600 dark:text-green-400' : tab.method === 'POST' ? 'text-blue-600 dark:text-blue-400' : tab.method === 'DELETE' ? 'text-red-600 dark:text-red-400' : tab.method === 'PUT' || tab.method === 'PATCH' ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}">{tab.method}</span>
+                <span class="text-sm truncate flex-1">{tab.name}</span>
+                <button
+                  onclick={(e) => { e.stopPropagation(); removeTab(tab.id); }}
+                  class="p-0.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover/req:opacity-100 transition-opacity flex-shrink-0"
+                  title={t('apiClient.delete')}
+                >
+                  <Trash2 class="w-3 h-3" />
+                </button>
+                <button
+                  onclick={(e) => { e.stopPropagation(); showMoveMenu = showMoveMenu === tab.id ? null : tab.id; }}
+                  class="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 opacity-0 group-hover/req:opacity-100 transition-opacity flex-shrink-0"
+                >
+                  <ArrowRight class="w-3 h-3" />
+                </button>
+                {#if showMoveMenu === tab.id}
+                  <!-- svelte-ignore a11y_click_events_have_key_events -->
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
+                  <div class="fixed inset-0 z-10" onclick={() => showMoveMenu = null}></div>
+                  <div class="absolute right-2 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 py-1 max-h-60 overflow-y-auto">
+                    <button
+                      onclick={(e) => { e.stopPropagation(); moveTabToCollection(tab.id, null); showMoveMenu = null; }}
+                      class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <Inbox class="w-3.5 h-3.5" /> {t('apiClient.ungrouped')}
+                    </button>
+                    {#each collections as c}
+                      {#if c.id !== col.id}
+                        <button
+                          onclick={(e) => { e.stopPropagation(); moveTabToCollection(tab.id, c.id); showMoveMenu = null; }}
+                          class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                        >
+                          <Folder class="w-3.5 h-3.5" /> {c.name}
+                        </button>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/each}
+            {#if tabsInCollection(col.id).length === 0}
+              <div class="pl-8 pr-2 py-1 text-xs text-gray-400 dark:text-gray-500 italic">{t('apiClient.emptyCollection')}</div>
+            {/if}
           {/if}
         </div>
       {/each}
+
+      <!-- Ungrouped requests -->
+      {#if collections.length > 0 && ungroupedTabs.length > 0}
+        <div class="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1"></div>
+      {/if}
+      {#if ungroupedTabs.length > 0 || collections.length === 0}
+        <div class="px-2 py-1 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('apiClient.ungrouped')}</div>
+      {/if}
+      {#each ungroupedTabs as tab (tab.id)}
+        <div
+          class="group/req flex items-center pl-3 pr-2 py-1 cursor-pointer {activeTabId === tab.id ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-600 dark:text-gray-400'} transition-colors relative"
+          onclick={() => setActiveTab(tab.id)}
+        >
+          <span class="text-xs font-mono font-bold flex-shrink-0 w-10 {tab.method === 'GET' ? 'text-green-600 dark:text-green-400' : tab.method === 'POST' ? 'text-blue-600 dark:text-blue-400' : tab.method === 'DELETE' ? 'text-red-600 dark:text-red-400' : tab.method === 'PUT' || tab.method === 'PATCH' ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}">{tab.method}</span>
+          <span class="text-sm truncate flex-1">{tab.name}</span>
+          <button
+            onclick={(e) => { e.stopPropagation(); removeTab(tab.id); }}
+            class="p-0.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover/req:opacity-100 transition-opacity flex-shrink-0"
+            title={t('apiClient.delete')}
+          >
+            <Trash2 class="w-3 h-3" />
+          </button>
+          {#if collections.length > 0}
+            <button
+              onclick={(e) => { e.stopPropagation(); showMoveMenu = showMoveMenu === tab.id ? null : tab.id; }}
+              class="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 opacity-0 group-hover/req:opacity-100 transition-opacity flex-shrink-0"
+            >
+              <ArrowRight class="w-3 h-3" />
+            </button>
+            {#if showMoveMenu === tab.id}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div class="fixed inset-0 z-10" onclick={() => showMoveMenu = null}></div>
+              <div class="absolute right-2 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 py-1 max-h-60 overflow-y-auto">
+                {#each collections as c}
+                  <button
+                    onclick={(e) => { e.stopPropagation(); moveTabToCollection(tab.id, c.id); showMoveMenu = null; }}
+                    class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <Folder class="w-3.5 h-3.5" /> {c.name}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          {/if}
+        </div>
+      {/each}
+    </div>
+    <div class="border-t border-gray-200 dark:border-gray-700 p-2 flex-shrink-0">
       <button
-        onclick={addTab}
-        class="px-4 py-3 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        onclick={() => addTab(null)}
+        class="w-full btn-secondary text-sm flex items-center justify-center gap-1.5"
       >
-        <Plus class="w-4 h-4" />
+        <Plus class="w-4 h-4" /> {t('apiClient.newRequest')}
       </button>
     </div>
   </div>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col gap-4 min-w-0 overflow-hidden">
 
   <!-- 请求配置卡片 -->
   <div class="card">
@@ -1519,6 +1905,22 @@
                   <Upload class="w-4 h-4" />
                   <span>{t('apiClient.importCurl')}</span>
                 </button>
+                <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                <button
+                  onclick={() => { exportAllRequests(); showDropdown = false; }}
+                  class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 transition-colors"
+                >
+                  <Download class="w-4 h-4" />
+                  <span>{t('apiClient.exportAll')}</span>
+                </button>
+                <button
+                  onclick={() => { triggerImport(); showDropdown = false; }}
+                  class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 transition-colors"
+                >
+                  <Upload class="w-4 h-4" />
+                  <span>{t('apiClient.importRequests')}</span>
+                </button>
+                <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                 <button
                   onclick={() => { exportCurlCommand(activeTab); showDropdown = false; }}
                   disabled={activeTab.isSending || !activeTab.url.trim()}
@@ -1527,7 +1929,6 @@
                   <Code class="w-4 h-4" />
                   <span>{t('apiClient.showCode')}</span>
                 </button>
-                <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                 <button
                   onclick={() => { clear(activeTab); showDropdown = false; }}
                   disabled={activeTab.isSending}
@@ -2166,5 +2567,6 @@
       </div>
     </div>
   {/if}
+  </div>
 </div>
 

@@ -986,7 +986,17 @@ const translations = {
       import: 'Import',
       close: 'Close',
       showCode: 'Show code',
-      clearAll: 'Clear all'
+      clearAll: 'Clear all',
+      collections: 'Collections',
+      newCollection: 'New Collection',
+      newRequest: 'New Request',
+      rename: 'Rename',
+      delete: 'Delete',
+      ungrouped: 'Ungrouped',
+      emptyCollection: 'No requests yet',
+      exportAll: 'Export All',
+      importRequests: 'Import Requests',
+      exportCollection: 'Export Collection'
     },
     websocket: {
       title: 'WebSocket Tester',
@@ -3704,7 +3714,17 @@ const translations = {
       import: '导入',
       close: '关闭',
       showCode: '显示代码',
-      clearAll: '清除全部'
+      clearAll: '清除全部',
+      collections: '集合',
+      newCollection: '新建集合',
+      newRequest: '新建请求',
+      rename: '重命名',
+      delete: '删除',
+      ungrouped: '未分组',
+      emptyCollection: '暂无请求',
+      exportAll: '导出全部',
+      importRequests: '导入请求',
+      exportCollection: '导出集合'
     },
     websocket: {
       title: 'WebSocket 测试器',
