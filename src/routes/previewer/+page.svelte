@@ -942,6 +942,53 @@
     }
   }
 
+  // 导出 Markdown 源码为 .md 文件
+  async function exportMarkdown() {
+    if (!markdownContent.trim()) return;
+
+    const filename = `Kairoa-markdown-${Date.now()}.md`;
+
+    if (isTauri) {
+      try {
+        if (!dialogModule) {
+          dialogModule = await import('@tauri-apps/plugin-dialog');
+        }
+        if (!fsModule) {
+          fsModule = await import('@tauri-apps/plugin-fs');
+        }
+
+        const { save } = dialogModule;
+        if (!save) throw new Error('save function not found');
+
+        const filePath = await save({
+          defaultPath: filename,
+          filters: [{ name: 'Markdown', extensions: ['md'] }]
+        });
+
+        if (!filePath) return;
+
+        const { writeFile } = fsModule;
+        if (!writeFile) throw new Error('writeFile function not found');
+
+        const encoder = new TextEncoder();
+        await writeFile(filePath, encoder.encode(markdownContent));
+      } catch (error) {
+        console.error('Export Markdown error:', error);
+        alert(`Failed to export: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    } else {
+      const blob = new Blob([markdownContent], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  }
+
   // 全局键盘事件监听器，用于处理预览框内的全选
   let markdownSelectAllHandler: ((e: KeyboardEvent) => void) | null = null;
 
@@ -2010,6 +2057,20 @@
               </div>
               <div class="flex items-center gap-1">
                 {#if markdownContent.trim()}
+                  <div class="relative group">
+                    <button
+                      onclick={exportMarkdown}
+                      class="p-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded transition-colors"
+                      type="button"
+                      title={t('previewer.exportMarkdown')}
+                    >
+                      <Download class="w-3.5 h-3.5" />
+                    </button>
+                    <div class="absolute bottom-full right-0 mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                      {t('previewer.exportMarkdown')}
+                      <div class="absolute top-full right-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                    </div>
+                  </div>
                   <div class="relative group">
                     <button
                       onclick={exportMarkdownAsPdf}
