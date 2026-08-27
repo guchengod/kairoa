@@ -272,6 +272,34 @@
   let curlCopied = $state(false);
   let headersCopied = $state(false);
   let showDropdown = $state(false);
+  let sidebarWidth = $state(256);
+  let isResizing = $state(false);
+
+  function startResize(e: MouseEvent) {
+    e.preventDefault();
+    isResizing = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const newWidth = Math.max(180, Math.min(500, startWidth + delta));
+      sidebarWidth = newWidth;
+    };
+
+    const onMouseUp = () => {
+      isResizing = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
   let requestView = $state<'headers' | 'body'>('headers');
   let showResponseDialog = $state(false);
   let bodyTextareaRef = $state<HTMLTextAreaElement | null>(null);
@@ -1626,7 +1654,16 @@
 <div class="w-full ml-0 mr-0 p-2 flex gap-4 h-[calc(100vh-2rem)]">
   <input type="file" accept=".json" bind:this={importFileInput} onchange={handleImportFile} class="hidden" />
   <!-- Collections Sidebar -->
-  <div class="card p-0 w-64 flex-shrink-0 flex flex-col overflow-hidden">
+  <div class="card p-0 flex-shrink-0 flex flex-col overflow-visible relative" style="width: {sidebarWidth}px; {isResizing ? 'pointer-events: none;' : ''}">
+    <!-- Resize handle on right edge (outside border) -->
+    <div
+      class="absolute top-1/2 -right-[9px] -translate-y-1/2 w-3 h-12 cursor-col-resize z-50 flex items-center justify-center group"
+      onmousedown={startResize}
+      role="separator"
+      tabindex="-1"
+    >
+      <div class="w-0.5 h-6 rounded-full transition-colors {isResizing ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600 group-hover:bg-primary-400 dark:group-hover:bg-primary-500'}"></div>
+    </div>
     <div class="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
       <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('apiClient.collections')}</span>
       <div class="flex items-center gap-1">
