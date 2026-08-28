@@ -1,6 +1,6 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
-  import { Copy, Check, Send, Trash2, Plus, X, Download, Upload, ChevronDown, ChevronRight, Code, Braces, FolderPlus, Folder, MoreVertical, Pencil, ArrowRight, Inbox } from 'lucide-svelte';
+  import { Copy, Check, Send, Trash2, Plus, X, Download, Upload, ChevronDown, ChevronRight, Code, Braces, FolderPlus, Folder, MoreVertical, Pencil, ArrowRight, Inbox, Search, Copy as CopyIcon, Clock, Key, GripVertical, Eye, FileCode } from 'lucide-svelte';
   import { browser } from '$app/environment';
   import hljs from 'highlight.js';
   
@@ -60,6 +60,7 @@
     error: string;
     copied: boolean;
     collectionId: string | null;
+    order: number;
   }
 
   interface Collection {
@@ -67,6 +68,30 @@
     name: string;
     collapsed: boolean;
   }
+
+  interface EnvVariable {
+    key: string;
+    value: string;
+    enabled: boolean;
+  }
+
+  interface Environment {
+    id: string;
+    name: string;
+    variables: EnvVariable[];
+  }
+
+  interface HistoryEntry {
+    id: string;
+    name: string;
+    method: HttpMethod;
+    url: string;
+    status: number | null;
+    time: number | null;
+    timestamp: number;
+  }
+
+  type AuthType = 'none' | 'bearer' | 'basic';
   
   let tabs = $state<TabData[]>([
     {
@@ -87,7 +112,8 @@
       responseTime: null,
       error: '',
       copied: false,
-      collectionId: null
+      collectionId: null,
+      order: 0
     }
   ]);
 
@@ -155,7 +181,8 @@
       responseTime: null,
       error: '',
       copied: false,
-      collectionId
+      collectionId,
+      order: tabs.length
     };
     tabs = [...tabs, newTab];
     activeTabId = newTab.id;
@@ -211,6 +238,22 @@
   }
 
   let ungroupedTabs = $derived(tabs.filter(t => t.collectionId === null));
+
+  let filteredUngroupedTabs = $derived(
+    searchText.trim()
+      ? ungroupedTabs.filter(t =>
+          t.name.toLowerCase().includes(searchText.toLowerCase()) ||
+          t.url.toLowerCase().includes(searchText.toLowerCase()))
+      : ungroupedTabs
+  );
+
+  function filteredTabsInCollection(colId: string) {
+    const colTabs = tabs.filter(t => t.collectionId === colId);
+    if (!searchText.trim()) return colTabs;
+    const q = searchText.toLowerCase();
+    return colTabs.filter(t =>
+      t.name.toLowerCase().includes(q) || t.url.toLowerCase().includes(q));
+  }
 
   let showCollectionMenu = $state<string | null>(null);
   let showMoveMenu = $state<string | null>(null);
@@ -300,13 +343,345 @@
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   }
-  let requestView = $state<'headers' | 'body'>('headers');
+
+  // ── Search ──
+  let searchText = $state('');
+
+  // ── Duplicate ──
+  function duplicateTab(tabId: string) {
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab) return;
+    const newTab: TabData = {
+      ...tab,
+      id: crypto.randomUUID(),
+      name: tab.name + ' (copy)',
+      isSending: false,
+      responseStatus: null,
+      responseHeaders: {},
+      responseBody: '',
+      responseTime: null,
+      error: '',
+      copied: false,
+      headers: tab.headers.map(h => ({ ...h })),
+      formData: (tab.formData || []).map(item => ({ ...item, file: null })),
+      order: tabs.length
+    };
+    tabs = [...tabs, newTab];
+    activeTabId = newTab.id;
+  }
+
+  // ── Drag & drop reordering ──
+  let draggedTabId = $state<string | null>(null);
+
+  function onDragStart(e: DragEvent, tabId: string) {
+    draggedTabId = tabId;
+    e.dataTransfer?.setData('text/plain', tabId);
+  }
+
+  function onDrop(e: DragEvent, targetTabId: string, targetColId: string | null) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedTabId || draggedTabId === targetTabId) return;
+    const draggedTab = tabs.find(t => t.id === draggedTabId);
+    if (!draggedTab) return;
+    // Move to target collection
+    draggedTab.collectionId = targetColId;
+    // Reorder: remove from array, insert before target
+    const filtered = tabs.filter(t => t.id !== draggedTabId);
+    const targetIdx = filtered.findIndex(t => t.id === targetTabId);
+    if (targetIdx >= 0) {
+      filtered.splice(targetIdx, 0, draggedTab);
+    } else {
+      filtered.push(draggedTab);
+    }
+    // Recalculate order
+    filtered.forEach((t, i) => { t.order = i; });
+    tabs = filtered;
+    draggedTabId = null;
+  }
+
+  function onDropOnCollection(e: DragEvent, colId: string | null) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedTabId) return;
+    const draggedTab = tabs.find(t => t.id === draggedTabId);
+    if (!draggedTab) return;
+    draggedTab.collectionId = colId;
+    draggedTabId = null;
+  }
+
+  // ── Environment variables ──
+  let environments = $state<Environment[]>([]);
+  let activeEnvId = $state<string | null>(null);
+  let showEnvDialog = $state(false);
+  let showEnvMenu = $state(false);
+  let showSidebarMenu = $state(false);
+
+  const STORAGE_ENVIRONMENTS_KEY = 'apiClient.environments.v1';
+  const STORAGE_ACTIVE_ENV_KEY = 'apiClient.activeEnvId.v1';
+
+  function loadEnvironments() {
+    if (!browser) return;
+    try {
+      const saved = localStorage.getItem(STORAGE_ENVIRONMENTS_KEY);
+      const savedActive = localStorage.getItem(STORAGE_ACTIVE_ENV_KEY);
+      if (saved) environments = JSON.parse(saved);
+      if (savedActive) activeEnvId = savedActive;
+    } catch {}
+  }
+
+  function saveEnvironments() {
+    if (!browser) return;
+    localStorage.setItem(STORAGE_ENVIRONMENTS_KEY, JSON.stringify(environments));
+    localStorage.setItem(STORAGE_ACTIVE_ENV_KEY, activeEnvId || '');
+  }
+
+  loadEnvironments();
+
+  $effect(() => {
+    environments;
+    activeEnvId;
+    saveEnvironments();
+  });
+
+  let activeEnvironment = $derived(environments.find(e => e.id === activeEnvId));
+
+  function resolveVariables(text: string): string {
+    if (!activeEnvironment) return text;
+    let resolved = text;
+    for (const v of activeEnvironment.variables) {
+      if (v.enabled && v.key.trim()) {
+        resolved = resolved.replaceAll(`{{${v.key.trim()}}}`, v.value);
+      }
+    }
+    return resolved;
+  }
+
+  function addEnvironment() {
+    const newEnv: Environment = { id: crypto.randomUUID(), name: 'New Environment', variables: [] };
+    environments = [...environments, newEnv];
+    activeEnvId = newEnv.id;
+  }
+
+  function deleteEnvironment(envId: string) {
+    environments = environments.filter(e => e.id !== envId);
+    if (activeEnvId === envId) activeEnvId = null;
+  }
+
+  function addEnvVariable(envId: string) {
+    const env = environments.find(e => e.id === envId);
+    if (env) env.variables = [...env.variables, { key: '', value: '', enabled: true }];
+  }
+
+  function removeEnvVariable(envId: string, index: number) {
+    const env = environments.find(e => e.id === envId);
+    if (env) env.variables = env.variables.filter((_, i) => i !== index);
+  }
+
+  // ── History ──
+  let history = $state<HistoryEntry[]>([]);
+  let showHistory = $state(false);
+  const STORAGE_HISTORY_KEY = 'apiClient.history.v1';
+  const MAX_HISTORY = 50;
+
+  function loadHistory() {
+    if (!browser) return;
+    try {
+      const saved = localStorage.getItem(STORAGE_HISTORY_KEY);
+      if (saved) history = JSON.parse(saved);
+    } catch {}
+  }
+
+  function saveHistory() {
+    if (!browser) return;
+    localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(history));
+  }
+
+  loadHistory();
+
+  function addHistoryEntry(tab: TabData) {
+    const entry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      name: tab.name,
+      method: tab.method,
+      url: tab.url,
+      status: tab.responseStatus,
+      time: tab.responseTime,
+      timestamp: Date.now()
+    };
+    history = [entry, ...history].slice(0, MAX_HISTORY);
+    saveHistory();
+  }
+
+  function clearHistory() {
+    history = [];
+    saveHistory();
+  }
+
+  // ── Auth ──
+  let authType = $state<AuthType>('none');
+  let bearerToken = $state('');
+  let basicUsername = $state('');
+  let basicPassword = $state('');
+
+  function getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+    if (authType === 'bearer' && bearerToken.trim()) {
+      headers['Authorization'] = `Bearer ${bearerToken.trim()}`;
+    } else if (authType === 'basic' && basicUsername.trim()) {
+      headers['Authorization'] = `Basic ${btoa(`${basicUsername}:${basicPassword}`)}`;
+    }
+    return headers;
+  }
+
+  // ── Timeout & redirect ──
+  let requestTimeout = $state(0);
+  let followRedirects = $state(true);
+
+  // ── Pre-request Script & Tests ──
+  let preRequestScript = $state('');
+  let testScript = $state('');
+  let testResults = $state<{ name: string; passed: boolean; error?: string }[]>([]);
+
+  // Build Postman-compatible `pm` object
+  function buildPm(envVars: Record<string, string>, scriptVars: Record<string, string>, response?: { status: number; body: string; headers: Record<string, string>; time: number }, results?: { name: string; passed: boolean; error?: string }[]) {
+    const pm = {
+      environment: {
+        get: (key: string) => envVars[key],
+        set: (key: string, value: string) => { envVars[key] = value; },
+        unset: (key: string) => { delete envVars[key]; },
+        has: (key: string) => key in envVars,
+      },
+      variables: {
+        get: (key: string) => scriptVars[key] ?? envVars[key],
+        set: (key: string, value: string) => { scriptVars[key] = value; },
+        unset: (key: string) => { delete scriptVars[key]; },
+        has: (key: string) => key in scriptVars || key in envVars,
+      },
+      response: response ? {
+        code: response.status,
+        status: response.status,
+        headers: {
+          get: (key: string) => response.headers[key] ?? response.headers[key.toLowerCase()],
+        },
+        json: () => { try { return JSON.parse(response.body); } catch { return null; } },
+        text: () => response.body,
+        responseTime: response.time,
+      } : undefined,
+      test: (name: string, fn: () => void) => {
+        if (!results) return;
+        try {
+          fn();
+          results.push({ name, passed: true });
+        } catch (e) {
+          results.push({ name, passed: false, error: e instanceof Error ? e.message : String(e) });
+        }
+      },
+      expect: (actual: unknown) => {
+        const r = results;
+        const makeResult = (ok: boolean, msg: string) => {
+          if (r) r.push({ name: msg, passed: ok, error: ok ? undefined : msg });
+          return ok;
+        };
+        return {
+          to: {
+            equal: (expected: unknown) => makeResult(JSON.stringify(actual) === JSON.stringify(expected), `expect(${JSON.stringify(actual)}).to.equal(${JSON.stringify(expected)}`),
+            eql: (expected: unknown) => makeResult(JSON.stringify(actual) === JSON.stringify(expected), `expect(${JSON.stringify(actual)}).to.eql(${JSON.stringify(expected)}`),
+            be: (expected: unknown) => makeResult(actual === expected, `expect(${actual}).to.be(${expected})`),
+            include: (expected: string) => makeResult(typeof actual === 'string' && actual.includes(expected), `expect().to.include("${expected}")`),
+            match: (regex: RegExp) => makeResult(typeof actual === 'string' && regex.test(actual), `expect().to.match(${regex})`),
+          },
+          toEqual: (expected: unknown) => makeResult(JSON.stringify(actual) === JSON.stringify(expected), `expect(${JSON.stringify(actual)}).toEqual(${JSON.stringify(expected)}`),
+          toBe: (expected: unknown) => makeResult(actual === expected, `expect(${actual}).toBe(${expected})`),
+          toEqual1: (expected: unknown) => makeResult(JSON.stringify(actual) === JSON.stringify(expected), `expect.toEqual`),
+          toBeGreaterThan: (expected: number) => makeResult((actual as number) > expected, `expect(${actual}).toBeGreaterThan(${expected})`),
+          toBeLessThan: (expected: number) => makeResult((actual as number) < expected, `expect(${actual}).toBeLessThan(${expected})`),
+          toContain: (expected: string) => makeResult(typeof actual === 'string' && actual.includes(expected), `expect().toContain("${expected}")`),
+          toMatch: (regex: RegExp) => makeResult(typeof actual === 'string' && regex.test(actual), `expect().toMatch(${regex})`),
+          to: {
+            equal: (expected: unknown) => makeResult(JSON.stringify(actual) === JSON.stringify(expected), `expect(${JSON.stringify(actual)}).to.equal(${JSON.stringify(expected)}`),
+            eql: (expected: unknown) => makeResult(JSON.stringify(actual) === JSON.stringify(expected), `expect(${JSON.stringify(actual)}).to.eql(${JSON.stringify(expected)}`),
+            be: (expected: unknown) => makeResult(actual === expected, `expect(${actual}).to.be(${expected})`),
+            include: (expected: string) => makeResult(typeof actual === 'string' && actual.includes(expected), `expect().to.include("${expected}")`),
+            match: (regex: RegExp) => makeResult(typeof actual === 'string' && regex.test(actual), `expect().to.match(${regex})`),
+            have: {
+              property: (key: string) => {
+                const ok = actual != null && typeof actual === 'object' && key in (actual as Record<string, unknown>);
+                return makeResult(ok, `expect().to.have.property("${key}")`);
+              },
+              status: (expected: number) => makeResult((actual as any)?.code === expected || (actual as any)?.status === expected, `expect().to.have.status(${expected})`),
+            },
+          },
+        };
+      },
+    };
+    return pm;
+  }
+
+  function runPreRequestScript(): Record<string, string> {
+    const scriptVars: Record<string, string> = {};
+    if (!preRequestScript.trim()) return scriptVars;
+
+    try {
+      const envVars: Record<string, string> = {};
+      if (activeEnvironment) {
+        for (const v of activeEnvironment.variables) {
+          if (v.enabled && v.key.trim()) envVars[v.key.trim()] = v.value;
+        }
+      }
+
+      const pm = buildPm(envVars, scriptVars);
+      const fn = new Function('pm', `
+        try { ${preRequestScript} } catch(e) { throw e; }
+      `);
+      fn(pm);
+    } catch (e) {
+      console.error('Pre-request script error:', e);
+    }
+    return scriptVars;
+  }
+
+  function runTestScript(tab: TabData) {
+    testResults = [];
+    if (!testScript.trim()) return;
+
+    try {
+      const envVars: Record<string, string> = {};
+      if (activeEnvironment) {
+        for (const v of activeEnvironment.variables) {
+          if (v.enabled && v.key.trim()) envVars[v.key.trim()] = v.value;
+        }
+      }
+
+      const scriptVars: Record<string, string> = {};
+      const results: { name: string; passed: boolean; error?: string }[] = [];
+      const response = {
+        status: tab.responseStatus ?? 0,
+        body: tab.responseBody,
+        headers: tab.responseHeaders,
+        time: tab.responseTime ?? 0,
+      };
+
+      const pm = buildPm(envVars, scriptVars, response, results);
+      const fn = new Function('pm', `
+        try { ${testScript} } catch(e) { results.push({ name: 'Script Error', passed: false, error: e.message }); }
+      `);
+      // Pass results as closure variable
+      (fn as Function)(pm, results);
+      testResults = results;
+    } catch (e) {
+      testResults = [{ name: 'Script Error', passed: false, error: e instanceof Error ? e.message : String(e) }];
+    }
+  }
+
+  let requestView = $state<'headers' | 'body' | 'auth' | 'settings' | 'preRequest' | 'tests'>('headers');
   let showResponseDialog = $state(false);
   let bodyTextareaRef = $state<HTMLTextAreaElement | null>(null);
   let jsonOverlayRef = $state<HTMLElement | null>(null);
   let xmlOverlayRef = $state<HTMLElement | null>(null);
   let responseOverlayRef = $state<HTMLElement | null>(null);
   let responseTextareaRef = $state<HTMLTextAreaElement | null>(null);
+  let responseViewMode = $state<'pretty' | 'raw' | 'preview'>('pretty');
 
   let highlightedResponse = $derived.by(() => {
     const body = activeTab?.responseBody ?? '';
@@ -437,6 +812,26 @@
       return hljs.highlight(xml, { language: 'xml' }).value;
     } catch {
       return xml;
+    }
+  });
+
+  let highlightedPreRequest = $derived.by(() => {
+    if (!preRequestScript.trim()) return '';
+    if (preRequestScript.length > 100000) return preRequestScript;
+    try {
+      return hljs.highlight(preRequestScript, { language: 'javascript' }).value;
+    } catch {
+      return preRequestScript;
+    }
+  });
+
+  let highlightedTestScript = $derived.by(() => {
+    if (!testScript.trim()) return '';
+    if (testScript.length > 100000) return testScript;
+    try {
+      return hljs.highlight(testScript, { language: 'javascript' }).value;
+    } catch {
+      return testScript;
     }
   });
 
@@ -626,13 +1021,24 @@
     tab.responseTime = null;
 
     const startTime = Date.now();
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     try {
+      // 执行 Pre-request Script
+      const scriptVars = runPreRequestScript();
+
+      // 解析环境变量 + 脚本变量
+      const resolvedUrl = resolveVariables(tab.url).replaceAll(/\{\{(\w+)\}\}/g, (_, key) => scriptVars[key] ?? `{{${key}}}`);
+
       // 构建请求头
       const requestHeaders: Record<string, string> = {};
+      // 添加 Auth headers
+      const authHeaders = getAuthHeaders();
+      Object.assign(requestHeaders, authHeaders);
+
       tab.headers.forEach((header) => {
         if (header.enabled && header.key.trim() && header.value.trim()) {
-          requestHeaders[header.key.trim()] = header.value.trim();
+          requestHeaders[resolveVariables(header.key.trim())] = resolveVariables(header.value.trim());
         }
       });
 
@@ -799,10 +1205,12 @@
         // 使用 Tauri 命令发送请求（绕过 CORS）
         const response = await invokeFn('http_request', {
           request: {
-            url: tab.url,
+            url: resolvedUrl,
             method: tab.method,
             headers: requestHeaders,
-            body: bodyForRequest
+            body: bodyForRequest,
+            follow_redirects: followRedirects,
+            timeout_secs: requestTimeout > 0 ? requestTimeout : undefined
           }
         }) as {
           status: number;
@@ -844,7 +1252,15 @@
         const requestOptions: RequestInit = {
           method: tab.method,
           headers: requestHeaders,
+          redirect: followRedirects ? 'follow' : 'manual',
         };
+
+        // Timeout
+        if (requestTimeout > 0) {
+          const controller = new AbortController();
+          requestOptions.signal = controller.signal;
+          timeoutId = setTimeout(() => controller.abort(), requestTimeout * 1000);
+        }
 
         if (requestBody !== undefined) {
           // 如果是 FormData，不要设置 Content-Type，让浏览器自动设置
@@ -855,7 +1271,7 @@
           requestOptions.body = requestBody as any;
         }
 
-        const response = await fetch(tab.url, requestOptions);
+        const response = await fetch(resolvedUrl, requestOptions);
         const endTime = Date.now();
         tab.responseTime = endTime - startTime;
 
@@ -889,11 +1305,13 @@
     } catch (err) {
       tab.error = err instanceof Error ? err.message : t('apiClient.requestFailed');
       tab.responseTime = Date.now() - startTime;
-      // 如果出错，也显示对话框显示错误信息
       showResponseDialog = true;
-    } finally {
-      tab.isSending = false;
-    }
+      } finally {
+        tab.isSending = false;
+        if (timeoutId) clearTimeout(timeoutId);
+        addHistoryEntry(tab);
+        runTestScript(tab);
+      }
   }
 
   async function copyResponse(tab: TabData) {
@@ -1666,28 +2084,63 @@
     </div>
     <div class="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
       <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('apiClient.collections')}</span>
-      <div class="flex items-center gap-1">
+      <div class="relative">
         <button
-          onclick={exportAllRequests}
+          onclick={() => showSidebarMenu = !showSidebarMenu}
           class="p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          title={t('apiClient.exportAll')}
+          title="Menu"
         >
-          <Download class="w-4 h-4" />
+          <MoreVertical class="w-4 h-4" />
         </button>
-        <button
-          onclick={triggerImport}
-          class="p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          title={t('apiClient.importRequests')}
-        >
-          <Upload class="w-4 h-4" />
-        </button>
-        <button
-          onclick={addCollection}
-          class="p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          title={t('apiClient.newCollection')}
-        >
-          <FolderPlus class="w-4 h-4" />
-        </button>
+        {#if showSidebarMenu}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div class="fixed inset-0 z-10" onclick={() => showSidebarMenu = false}></div>
+          <div class="absolute right-0 mt-1 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 py-1">
+            <button
+              onclick={() => { addCollection(); showSidebarMenu = false; }}
+              class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+            >
+              <FolderPlus class="w-3.5 h-3.5" /> {t('apiClient.newCollection')}
+            </button>
+            <button
+              onclick={() => { exportAllRequests(); showSidebarMenu = false; }}
+              class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+            >
+              <Download class="w-3.5 h-3.5" /> {t('apiClient.exportAll')}
+            </button>
+            <button
+              onclick={() => { triggerImport(); showSidebarMenu = false; }}
+              class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+            >
+              <Upload class="w-3.5 h-3.5" /> {t('apiClient.importRequests')}
+            </button>
+            <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+            <button
+              onclick={() => { showEnvDialog = true; showSidebarMenu = false; }}
+              class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+            >
+              <Key class="w-3.5 h-3.5" /> {t('apiClient.environments')}
+            </button>
+            <button
+              onclick={() => { showHistory = true; showSidebarMenu = false; }}
+              class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+            >
+              <Clock class="w-3.5 h-3.5" /> {t('apiClient.history')}
+            </button>
+          </div>
+        {/if}
+      </div>
+    </div>
+    <div class="px-2 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center gap-1.5 flex-shrink-0">
+      <div class="relative flex-1">
+        <Search class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+        <input
+          type="text"
+          bind:value={searchText}
+          placeholder={t('apiClient.search')}
+          class="w-full pl-7 pr-2 py-1 text-xs bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        />
       </div>
     </div>
     <div class="flex-1 overflow-y-auto py-1">
@@ -1763,13 +2216,24 @@
             </div>
           {/if}
           {#if !col.collapsed}
-            {#each tabsInCollection(col.id) as tab (tab.id)}
+            {#each filteredTabsInCollection(col.id) as tab (tab.id)}
               <div
                 class="group/req flex items-center pl-8 pr-2 py-1 cursor-pointer {activeTabId === tab.id ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-600 dark:text-gray-400'} transition-colors relative"
+                draggable="true"
+                ondragstart={(e) => onDragStart(e, tab.id)}
+                ondragover={(e) => e.preventDefault()}
+                ondrop={(e) => onDrop(e, tab.id, col.id)}
                 onclick={() => setActiveTab(tab.id)}
               >
                 <span class="text-xs font-mono font-bold flex-shrink-0 w-10 {tab.method === 'GET' ? 'text-green-600 dark:text-green-400' : tab.method === 'POST' ? 'text-blue-600 dark:text-blue-400' : tab.method === 'DELETE' ? 'text-red-600 dark:text-red-400' : tab.method === 'PUT' || tab.method === 'PATCH' ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}">{tab.method}</span>
                 <span class="text-sm truncate flex-1">{tab.name}</span>
+                <button
+                  onclick={(e) => { e.stopPropagation(); duplicateTab(tab.id); }}
+                  class="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 opacity-0 group-hover/req:opacity-100 transition-opacity flex-shrink-0"
+                  title={t('apiClient.duplicate')}
+                >
+                  <CopyIcon class="w-3 h-3" />
+                </button>
                 <button
                   onclick={(e) => { e.stopPropagation(); removeTab(tab.id); }}
                   class="p-0.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover/req:opacity-100 transition-opacity flex-shrink-0"
@@ -1808,7 +2272,7 @@
                 {/if}
               </div>
             {/each}
-            {#if tabsInCollection(col.id).length === 0}
+            {#if filteredTabsInCollection(col.id).length === 0}
               <div class="pl-8 pr-2 py-1 text-xs text-gray-400 dark:text-gray-500 italic">{t('apiClient.emptyCollection')}</div>
             {/if}
           {/if}
@@ -1822,13 +2286,24 @@
       {#if ungroupedTabs.length > 0 || collections.length === 0}
         <div class="px-2 py-1 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('apiClient.ungrouped')}</div>
       {/if}
-      {#each ungroupedTabs as tab (tab.id)}
+      {#each filteredUngroupedTabs as tab (tab.id)}
         <div
           class="group/req flex items-center pl-3 pr-2 py-1 cursor-pointer {activeTabId === tab.id ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-600 dark:text-gray-400'} transition-colors relative"
+          draggable="true"
+          ondragstart={(e) => onDragStart(e, tab.id)}
+          ondragover={(e) => e.preventDefault()}
+          ondrop={(e) => onDrop(e, tab.id, null)}
           onclick={() => setActiveTab(tab.id)}
         >
           <span class="text-xs font-mono font-bold flex-shrink-0 w-10 {tab.method === 'GET' ? 'text-green-600 dark:text-green-400' : tab.method === 'POST' ? 'text-blue-600 dark:text-blue-400' : tab.method === 'DELETE' ? 'text-red-600 dark:text-red-400' : tab.method === 'PUT' || tab.method === 'PATCH' ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}">{tab.method}</span>
           <span class="text-sm truncate flex-1">{tab.name}</span>
+          <button
+            onclick={(e) => { e.stopPropagation(); duplicateTab(tab.id); }}
+            class="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 opacity-0 group-hover/req:opacity-100 transition-opacity flex-shrink-0"
+            title={t('apiClient.duplicate')}
+          >
+            <CopyIcon class="w-3 h-3" />
+          </button>
           <button
             onclick={(e) => { e.stopPropagation(); removeTab(tab.id); }}
             class="p-0.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover/req:opacity-100 transition-opacity flex-shrink-0"
@@ -2002,6 +2477,52 @@
               <span class="text-sm font-medium">{t('apiClient.body')}</span>
             </button>
           {/if}
+          <button
+            onclick={() => requestView = 'auth'}
+            class="px-4 py-2 border-b-2 transition-colors {requestView === 'auth'
+              ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
+          >
+            <span class="text-sm font-medium flex items-center gap-1">
+              <Key class="w-3.5 h-3.5" />
+              {t('apiClient.auth')}
+            </span>
+          </button>
+          <button
+            onclick={() => requestView = 'settings'}
+            class="px-4 py-2 border-b-2 transition-colors {requestView === 'settings'
+              ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
+          >
+            <span class="text-sm font-medium">{t('apiClient.settings')}</span>
+          </button>
+          <button
+            onclick={() => requestView = 'preRequest'}
+            class="px-4 py-2 border-b-2 transition-colors {requestView === 'preRequest'
+              ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
+          >
+            <span class="text-sm font-medium flex items-center gap-1">
+              <Code class="w-3.5 h-3.5" />
+              {t('apiClient.preRequestScript')}
+            </span>
+          </button>
+          <button
+            onclick={() => requestView = 'tests'}
+            class="px-4 py-2 border-b-2 transition-colors {requestView === 'tests'
+              ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
+          >
+            <span class="text-sm font-medium flex items-center gap-1">
+              <FileCode class="w-3.5 h-3.5" />
+              {t('apiClient.tests')}
+              {#if testResults.length > 0}
+                <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full {testResults.every(r => r.passed) ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}">
+                  {testResults.filter(r => r.passed).length}/{testResults.length}
+                </span>
+              {/if}
+            </span>
+          </button>
         </div>
 
         <!-- Tab Content -->
@@ -2375,6 +2896,155 @@
         </div>
       {/if}
 
+      {#if requestView === 'auth'}
+        <div class="space-y-3">
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20">{t('apiClient.authType')}</label>
+            <select bind:value={authType} class="input flex-1">
+              <option value="none">No Auth</option>
+              <option value="bearer">Bearer Token</option>
+              <option value="basic">Basic Auth</option>
+            </select>
+          </div>
+          {#if authType === 'bearer'}
+            <div class="flex items-center gap-3">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20">Token</label>
+              <input type="text" bind:value={bearerToken} placeholder="Enter token..." class="input flex-1 font-mono text-sm" />
+            </div>
+          {/if}
+          {#if authType === 'basic'}
+            <div class="flex items-center gap-3">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20">Username</label>
+              <input type="text" bind:value={basicUsername} placeholder="Username" class="input flex-1 text-sm" />
+            </div>
+            <div class="flex items-center gap-3">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20">Password</label>
+              <input type="password" bind:value={basicPassword} placeholder="Password" class="input flex-1 text-sm" />
+            </div>
+          {/if}
+          {#if authType === 'none'}
+            <p class="text-sm text-gray-400 dark:text-gray-500 py-4">{t('apiClient.authNoneDesc')}</p>
+          {/if}
+        </div>
+      {/if}
+
+      {#if requestView === 'settings'}
+        <div class="space-y-4">
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-40">{t('apiClient.timeout')}</label>
+            <input type="number" bind:value={requestTimeout} min="0" step="1" class="input w-32 text-sm" />
+            <span class="text-sm text-gray-500 dark:text-gray-400">{t('apiClient.seconds')} (0 = {t('apiClient.noTimeout')})</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-40">{t('apiClient.followRedirects')}</label>
+            <input type="checkbox" bind:checked={followRedirects} class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700" />
+          </div>
+        </div>
+      {/if}
+
+      {#if requestView === 'preRequest'}
+        <div class="space-y-2">
+          <details class="text-xs">
+            <summary class="cursor-pointer text-gray-600 dark:text-gray-400 font-medium py-1">{t('apiClient.preRequestDesc')}</summary>
+            <div class="mt-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg space-y-1 text-gray-600 dark:text-gray-400 font-mono">
+              <div>// {t('apiClient.preRequestSyntaxTitle')}</div>
+              <div>pm.environment.<b>get</b>(key)          <span class="text-gray-400">// {t('apiClient.preRequestEnvGet')}</span></div>
+              <div>pm.environment.<b>set</b>(key, value)    <span class="text-gray-400">// {t('apiClient.preRequestEnvSet')}</span></div>
+              <div>pm.environment.<b>has</b>(key)           <span class="text-gray-400">// {t('apiClient.preRequestEnvHas')}</span></div>
+              <div>pm.variables.<b>get</b>(key)             <span class="text-gray-400">// {t('apiClient.preRequestVarGet')}</span></div>
+              <div>pm.variables.<b>set</b>(key, value)      <span class="text-gray-400">// {t('apiClient.preRequestVarSet')}</span></div>
+              <div class="mt-1 text-gray-400">// {t('apiClient.preRequestExampleTitle')}</div>
+              <div>pm.environment.set('baseUrl', 'https://api.example.com')</div>
+              <div>pm.variables.set('token', btoa('user:pass'))</div>
+              <div>pm.variables.set('ts', Date.now().toString())</div>
+            </div>
+          </details>
+          <div class="json-editor-container bordered h-[300px]">
+            <pre class="json-editor-overlay textarea font-mono text-sm" aria-hidden="true"><code class="hljs language-javascript">{@html highlightedPreRequest}</code></pre>
+            <textarea
+              bind:value={preRequestScript}
+              placeholder="// pm.variables.set('timestamp', Date.now().toString())&#10;// pm.environment.set('token', btoa('user:pass'))"
+              class="json-editor-textarea textarea font-mono text-sm h-full"
+              wrap="off"
+              spellcheck="false"
+            ></textarea>
+          </div>
+        </div>
+      {/if}
+
+      {#if requestView === 'tests'}
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <p class="text-xs text-gray-500 dark:text-gray-400 flex-1">{t('apiClient.testsDesc')}</p>
+            {#if testResults.length > 0}
+              <span class="text-xs px-2 py-0.5 rounded-full {testResults.every(r => r.passed) ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}">
+                {testResults.filter(r => r.passed).length}/{testResults.length} {t('apiClient.passed')}
+              </span>
+            {/if}
+          </div>
+          <details class="text-xs">
+            <summary class="cursor-pointer text-gray-600 dark:text-gray-400 font-medium py-1">{t('apiClient.testsSyntaxTitle')}</summary>
+            <div class="mt-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg space-y-1 text-gray-600 dark:text-gray-400 font-mono">
+              <div>// {t('apiClient.testsApiTitle')}</div>
+              <div>pm.<b>test</b>(name, fn)                    <span class="text-gray-400">// {t('apiClient.testsTestDesc')}</span></div>
+              <div>pm.<b>expect</b>(actual)                    <span class="text-gray-400">// {t('apiClient.testsExpectDesc')}</span></div>
+              <div class="ml-4">.to.equal(expected)             <span class="text-gray-400">// {t('apiClient.testsToEqual')}</span></div>
+              <div class="ml-4">.to.eql(expected)              <span class="text-gray-400">// {t('apiClient.testsToEql')}</span></div>
+              <div class="ml-4">.to.be(expected)               <span class="text-gray-400">// {t('apiClient.testsToBe')}</span></div>
+              <div class="ml-4">.to.include(substring)        <span class="text-gray-400">// {t('apiClient.testsToInclude')}</span></div>
+              <div class="ml-4">.to.match(regex)               <span class="text-gray-400">// {t('apiClient.testsToMatch')}</span></div>
+              <div class="ml-4">.to.have.property(key)        <span class="text-gray-400">// {t('apiClient.testsToHave')}</span></div>
+              <div class="ml-4">.to.have.status(code)         <span class="text-gray-400">// {t('apiClient.testsToHaveStatus')}</span></div>
+              <div class="mt-2">// pm.response</div>
+              <div>pm.response.<b>code</b>                       <span class="text-gray-400">// {t('apiClient.testsRespCode')}</span></div>
+              <div>pm.response.<b>text</b>()                    <span class="text-gray-400">// {t('apiClient.testsRespText')}</span></div>
+              <div>pm.response.<b>json</b>()                    <span class="text-gray-400">// {t('apiClient.testsRespJson')}</span></div>
+              <div>pm.response.<b>responseTime</b>              <span class="text-gray-400">// {t('apiClient.testsRespTime')}</span></div>
+              <div>pm.response.headers.<b>get</b>(key)          <span class="text-gray-400">// {t('apiClient.testsRespHeader')}</span></div>
+              <div class="mt-2 text-gray-400">// {t('apiClient.testsExampleTitle')}</div>
+              <div>pm.test('Status is 200', () => {'{'}</div>
+              <div class="ml-2">pm.expect(pm.response.code).to.equal(200)</div>
+              <div>{'}'})</div>
+              <div>pm.test('Body has id', () => {'{'}</div>
+              <div class="ml-2">pm.expect(pm.response.json()).to.have.property('id')</div>
+              <div>{'}'})</div>
+            </div>
+          </details>
+          <div class="json-editor-container bordered h-[200px]">
+            <pre class="json-editor-overlay textarea font-mono text-sm" aria-hidden="true"><code class="hljs language-javascript">{@html highlightedTestScript}</code></pre>
+            <textarea
+              bind:value={testScript}
+              placeholder={`// pm.test("Status is 200", () => {
+//   pm.expect(pm.response.code).to.equal(200)
+// })
+// pm.test("Body contains success", () => {
+//   pm.expect(pm.response.text()).to.include("success")
+// })`}
+              class="json-editor-textarea textarea font-mono text-sm h-full"
+              wrap="off"
+              spellcheck="false"
+            ></textarea>
+          </div>
+          {#if testResults.length > 0}
+            <div class="space-y-1">
+              {#each testResults as result}
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded text-sm {result.passed ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'}">
+                  {#if result.passed}
+                    <Check class="w-4 h-4 flex-shrink-0" />
+                  {:else}
+                    <X class="w-4 h-4 flex-shrink-0" />
+                  {/if}
+                  <span class="font-mono text-xs">{result.name}</span>
+                  {#if result.error}
+                    <span class="text-xs opacity-70">- {result.error}</span>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
+
       {#if activeTab.error}
         <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <p class="text-sm text-red-800 dark:text-red-200">{activeTab.error}</p>
@@ -2456,8 +3126,24 @@
             <!-- 响应体 -->
             <div class="flex flex-col">
               <div class="flex items-center justify-between mb-2 h-[2.5rem]">
-                <div class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('apiClient.responseBody')}
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{t('apiClient.responseBody')}</span>
+                  {#if activeTab.responseBody}
+                    <div class="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-700 rounded p-0.5">
+                      <button
+                        onclick={() => responseViewMode = 'pretty'}
+                        class="px-2 py-0.5 text-xs rounded transition-colors {responseViewMode === 'pretty' ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 font-medium shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
+                      >Pretty</button>
+                      <button
+                        onclick={() => responseViewMode = 'raw'}
+                        class="px-2 py-0.5 text-xs rounded transition-colors {responseViewMode === 'raw' ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 font-medium shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
+                      >Raw</button>
+                      <button
+                        onclick={() => responseViewMode = 'preview'}
+                        class="px-2 py-0.5 text-xs rounded transition-colors {responseViewMode === 'preview' ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 font-medium shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
+                      >Preview</button>
+                    </div>
+                  {/if}
                 </div>
                 {#if activeTab.responseBody}
                   <button
@@ -2481,17 +3167,43 @@
                 {/if}
               </div>
               {#if activeTab.responseBody}
-                <div class="json-editor-container bordered h-[400px] {activeTab.copied ? 'border-green-300 dark:border-green-700' : ''}">
-                  <pre class="json-editor-overlay textarea font-mono text-sm" bind:this={responseOverlayRef} aria-hidden="true"><code class="hljs language-json">{@html highlightedResponse}</code></pre>
+                {#if responseViewMode === 'preview'}
+                  <!-- Preview mode: render HTML/images -->
+                  <div class="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg h-[400px] overflow-y-auto">
+                    {#if activeTab.responseHeaders['content-type']?.includes('image/') || activeTab.responseHeaders['Content-Type']?.includes('image/')}
+                      <div class="flex items-center justify-center p-4 h-full">
+                        <img src="{activeTab.url}" alt="Response preview" class="max-w-full max-h-full object-contain" />
+                      </div>
+                    {:else}
+                      <iframe
+                        title="Response Preview"
+                        class="w-full h-full border-0"
+                        srcdoc={activeTab.responseBody}
+                        sandbox="allow-same-origin"
+                      ></iframe>
+                    {/if}
+                  </div>
+                {:else if responseViewMode === 'raw'}
+                  <!-- Raw mode: plain text -->
                   <textarea
-                    bind:this={responseTextareaRef}
                     value={activeTab.responseBody}
                     readonly
-                    wrap={"off" as any}
-                    class="json-editor-textarea textarea font-mono text-sm h-full {activeTab.copied ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} transition-colors duration-300"
-                    onscroll={syncResponseScroll}
+                    class="textarea font-mono text-sm h-[400px] resize-none overflow-y-auto {activeTab.copied ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} transition-colors duration-300"
                   ></textarea>
-                </div>
+                {:else}
+                  <!-- Pretty mode: syntax highlighted -->
+                  <div class="json-editor-container bordered h-[400px] {activeTab.copied ? 'border-green-300 dark:border-green-700' : ''}">
+                    <pre class="json-editor-overlay textarea font-mono text-sm" bind:this={responseOverlayRef} aria-hidden="true"><code class="hljs language-json">{@html highlightedResponse}</code></pre>
+                    <textarea
+                      bind:this={responseTextareaRef}
+                      value={activeTab.responseBody}
+                      readonly
+                      wrap={"off" as any}
+                      class="json-editor-textarea textarea font-mono text-sm h-full {activeTab.copied ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} transition-colors duration-300"
+                      onscroll={syncResponseScroll}
+                    ></textarea>
+                  </div>
+                {/if}
               {:else}
                 <div class="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 h-[400px] overflow-y-auto flex items-center justify-center">
                   <span class="text-sm text-gray-400 dark:text-gray-500">{t('apiClient.noResponseBody')}</span>
@@ -2599,11 +3311,149 @@
               <Copy class="w-4 h-4" />
               {t('common.copy')}
             {/if}
-          </button>
+                    </button>
         </div>
       </div>
     </div>
   {/if}
+
+  <!-- Environment Variables Dialog -->
+  {#if showEnvDialog}
+    <div
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onclick={() => showEnvDialog = false}
+      onkeydown={(e) => { if (e.key === 'Escape') showEnvDialog = false; }}
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onclick={(e) => e.stopPropagation()}>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('apiClient.environments')}</h3>
+          <div class="flex items-center gap-2">
+            <div class="relative">
+              <button
+                onclick={() => showEnvMenu = !showEnvMenu}
+                class="p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Menu"
+              >
+                <MoreVertical class="w-5 h-5" />
+              </button>
+              {#if showEnvMenu}
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div class="fixed inset-0 z-10" onclick={() => showEnvMenu = false}></div>
+                <div class="absolute right-0 mt-1 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 py-1">
+                  <button
+                    onclick={() => { addEnvironment(); showEnvMenu = false; }}
+                    class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <Plus class="w-3.5 h-3.5" /> {t('apiClient.newEnv')}
+                  </button>
+                </div>
+              {/if}
+            </div>
+            <button onclick={() => showEnvDialog = false} class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+              <X class="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </button>
+          </div>
+        </div>
+        <div class="flex gap-4 flex-1 overflow-hidden">
+          <div class="w-48 flex-shrink-0 flex flex-col">
+            <div class="flex-1 overflow-y-auto">
+              {#each environments as env}
+                <div class="flex items-center group/env px-2 py-1.5 rounded cursor-pointer {activeEnvId === env.id ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}" onclick={() => activeEnvId = env.id}>
+                  <span class="flex-1 text-sm truncate">{env.name}</span>
+                  <button onclick={(e) => { e.stopPropagation(); deleteEnvironment(env.id); }} class="p-0.5 text-gray-400 hover:text-red-500 opacity-0 group-hover/env:opacity-100 transition-opacity">
+                    <Trash2 class="w-3 h-3" />
+                  </button>
+                </div>
+              {/each}
+              {#if environments.length === 0}
+                <p class="text-xs text-gray-400 dark:text-gray-500 px-2 py-4">{t('apiClient.noEnvs')}</p>
+              {/if}
+            </div>
+          </div>
+          <div class="flex-1 flex flex-col overflow-hidden">
+            {#if activeEnvironment}
+              <input type="text" bind:value={activeEnvironment.name} class="input text-sm font-medium mb-3" placeholder="Environment name" />
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{t('apiClient.variables')}</span>
+                <button onclick={() => addEnvVariable(activeEnvironment.id)} class="btn-secondary text-xs flex items-center gap-1">
+                  <Plus class="w-3 h-3" /> {t('apiClient.addVariable')}
+                </button>
+              </div>
+              <div class="flex-1 overflow-y-auto space-y-1">
+                {#each activeEnvironment.variables as v, i}
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" bind:checked={v.enabled} class="w-4 h-4" />
+                    <input type="text" bind:value={v.key} placeholder="key" class="input flex-1 text-sm font-mono" />
+                    <input type="text" bind:value={v.value} placeholder="value" class="input flex-1 text-sm font-mono" />
+                    <button onclick={() => removeEnvVariable(activeEnvironment.id, i)} class="p-1 text-gray-400 hover:text-red-500">
+                      <X class="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                {/each}
+                {#if activeEnvironment.variables.length === 0}
+                  <p class="text-xs text-gray-400 dark:text-gray-500 py-4 text-center">{t('apiClient.noVariables')}</p>
+                {/if}
+              </div>
+              <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">{t('apiClient.envHint')}</p>
+            {:else}
+              <div class="flex-1 flex items-center justify-center">
+                <p class="text-sm text-gray-400 dark:text-gray-500">{t('apiClient.selectEnv')}</p>
+              </div>
+            {/if}
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- History Dialog -->
+  {#if showHistory}
+    <div
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onclick={() => showHistory = false}
+      onkeydown={(e) => { if (e.key === 'Escape') showHistory = false; }}
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onclick={(e) => e.stopPropagation()}>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('apiClient.history')}</h3>
+          <div class="flex items-center gap-2">
+            <button onclick={clearHistory} class="btn-secondary text-xs flex items-center gap-1">
+              <Trash2 class="w-3.5 h-3.5" /> {t('apiClient.clearHistory')}
+            </button>
+            <button onclick={() => showHistory = false} class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+              <X class="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </button>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto space-y-1">
+          {#each history as entry}
+            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+              <span class="text-xs font-mono font-bold w-12 flex-shrink-0 {entry.method === 'GET' ? 'text-green-600 dark:text-green-400' : entry.method === 'POST' ? 'text-blue-600 dark:text-blue-400' : entry.method === 'DELETE' ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}">{entry.method}</span>
+              <span class="text-sm truncate flex-1 text-gray-700 dark:text-gray-300">{entry.url}</span>
+              {#if entry.status !== null}
+                <span class="text-xs font-mono px-1.5 py-0.5 rounded {entry.status < 300 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}">{entry.status}</span>
+              {/if}
+              {#if entry.time !== null}
+                <span class="text-xs text-gray-400">{entry.time}ms</span>
+              {/if}
+              <span class="text-xs text-gray-400">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+            </div>
+          {/each}
+          {#if history.length === 0}
+            <p class="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('apiClient.noHistory')}</p>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+
   </div>
 </div>
 

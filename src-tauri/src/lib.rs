@@ -35,6 +35,10 @@ pub struct HttpRequest {
     method: String,
     headers: HashMap<String, String>,
     body: Option<String>,
+    #[serde(default)]
+    follow_redirects: Option<bool>,
+    #[serde(default)]
+    timeout_secs: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -61,7 +65,31 @@ pub struct HttpResponse {
 
 #[tauri::command]
 async fn http_request(request: HttpRequest) -> Result<HttpResponse, String> {
-    let client = reqwest::Client::new();
+    let mut client_builder = reqwest::Client::builder();
+
+    // 配置重定向
+    let client_builder = if let Some(follow) = request.follow_redirects {
+        if follow {
+            client_builder.redirect(reqwest::redirect::Policy::limited(10))
+        } else {
+            client_builder.redirect(reqwest::redirect::Policy::none())
+        }
+    } else {
+        client_builder
+    };
+
+    // 配置超时
+    let client_builder = if let Some(secs) = request.timeout_secs {
+        if secs > 0 {
+            client_builder.timeout(std::time::Duration::from_secs(secs))
+        } else {
+            client_builder
+        }
+    } else {
+        client_builder
+    };
+
+    let client = client_builder.build().map_err(|e| e.to_string())?;
     
     let mut req_builder = match request.method.as_str() {
         "GET" => client.get(&request.url),
