@@ -2225,7 +2225,7 @@
                 ondrop={(e) => onDrop(e, tab.id, col.id)}
                 onclick={() => setActiveTab(tab.id)}
               >
-                <span class="text-xs font-mono font-bold flex-shrink-0 w-10 {tab.method === 'GET' ? 'text-green-600 dark:text-green-400' : tab.method === 'POST' ? 'text-blue-600 dark:text-blue-400' : tab.method === 'DELETE' ? 'text-red-600 dark:text-red-400' : tab.method === 'PUT' || tab.method === 'PATCH' ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}">{tab.method}</span>
+                <span class="text-xs font-mono font-bold flex-shrink-0 w-14 truncate {tab.method === 'GET' ? 'text-green-600 dark:text-green-400' : tab.method === 'POST' ? 'text-blue-600 dark:text-blue-400' : tab.method === 'DELETE' ? 'text-red-600 dark:text-red-400' : tab.method === 'PUT' || tab.method === 'PATCH' ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}">{tab.method}</span>
                 <span class="text-sm truncate flex-1">{tab.name}</span>
                 <button
                   onclick={(e) => { e.stopPropagation(); duplicateTab(tab.id); }}
@@ -2295,7 +2295,7 @@
           ondrop={(e) => onDrop(e, tab.id, null)}
           onclick={() => setActiveTab(tab.id)}
         >
-          <span class="text-xs font-mono font-bold flex-shrink-0 w-10 {tab.method === 'GET' ? 'text-green-600 dark:text-green-400' : tab.method === 'POST' ? 'text-blue-600 dark:text-blue-400' : tab.method === 'DELETE' ? 'text-red-600 dark:text-red-400' : tab.method === 'PUT' || tab.method === 'PATCH' ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}">{tab.method}</span>
+          <span class="text-xs font-mono font-bold flex-shrink-0 w-14 truncate {tab.method === 'GET' ? 'text-green-600 dark:text-green-400' : tab.method === 'POST' ? 'text-blue-600 dark:text-blue-400' : tab.method === 'DELETE' ? 'text-red-600 dark:text-red-400' : tab.method === 'PUT' || tab.method === 'PATCH' ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}">{tab.method}</span>
           <span class="text-sm truncate flex-1">{tab.name}</span>
           <button
             onclick={(e) => { e.stopPropagation(); duplicateTab(tab.id); }}
@@ -3435,7 +3435,7 @@
         <div class="flex-1 overflow-y-auto space-y-1">
           {#each history as entry}
             <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-              <span class="text-xs font-mono font-bold w-12 flex-shrink-0 {entry.method === 'GET' ? 'text-green-600 dark:text-green-400' : entry.method === 'POST' ? 'text-blue-600 dark:text-blue-400' : entry.method === 'DELETE' ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}">{entry.method}</span>
+              <span class="text-xs font-mono font-bold w-14 flex-shrink-0 truncate {entry.method === 'GET' ? 'text-green-600 dark:text-green-400' : entry.method === 'POST' ? 'text-blue-600 dark:text-blue-400' : entry.method === 'DELETE' ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}">{entry.method}</span>
               <span class="text-sm truncate flex-1 text-gray-700 dark:text-gray-300">{entry.url}</span>
               {#if entry.status !== null}
                 <span class="text-xs font-mono px-1.5 py-0.5 rounded {entry.status < 300 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}">{entry.status}</span>
